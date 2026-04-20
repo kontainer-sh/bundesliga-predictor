@@ -497,7 +497,7 @@ def best_tip(home: str, away: str, model: dict) -> tuple[int, int, float]:
 
 
 def best_tip_combined(home: str, away: str, model: dict,
-                      odds_mat: np.ndarray, weight_odds: float = 0.5) -> tuple[int, int, float]:
+                      odds_mat: np.ndarray, weight_odds: float = 0.7) -> tuple[int, int, float]:
     """
     Kombiniert Dixon-Coles und Quoten-basierte Score-Matrix.
     weight_odds=0: nur Modell, weight_odds=1: nur Quoten.
