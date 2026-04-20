@@ -40,6 +40,8 @@ NUM_PREV_SEASONS = 3   # Anzahl Vorsaisons für Training
 REG_LAMBDA = 0.0       # L2-Regularisierungsstärke (0 = keine)
 NEGBIN_R = None        # Neg. Binomial Dispersionsparameter (None = Poisson)
 
+FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281"
+
 
 # ---------------------------------------------------------------------------
 # Kicktipp Punkteschema
@@ -132,6 +134,186 @@ def fetch_matchday_fixtures(season: int, matchday: int) -> list[dict]:
             "away": m["team2"]["teamName"],
         })
     return fixtures
+
+
+# ---------------------------------------------------------------------------
+# football-data.co.uk Quoten (optional)
+# ---------------------------------------------------------------------------
+
+def _season_code(season: int) -> str:
+    """Konvertiert z.B. 2024 → '2425'."""
+    return f"{season % 100:02d}{(season + 1) % 100:02d}"
+
+
+def fetch_odds_csv(season: int) -> list[dict]:
+    """Lädt Pinnacle-Quoten + Statistiken von football-data.co.uk, mit Cache."""
+    import csv
+    import io
+
+    CACHE_DIR.mkdir(exist_ok=True)
+    cache_file = CACHE_DIR / f"odds_D1_{season}.csv"
+
+    if cache_file.exists():
+        print(f"  Odds {season}/{season+1}: Cache", flush=True)
+        content = cache_file.read_text(encoding="utf-8-sig")
+    else:
+        code = _season_code(season)
+        url = f"{FOOTBALL_DATA_URL}/{code}/D1.csv"
+        print(f"  Lade Odds {season}/{season+1}...", end=" ", flush=True)
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        content = resp.text
+        cache_file.write_text(content, encoding="utf-8-sig")
+        print("OK.")
+
+    reader = csv.DictReader(io.StringIO(content))
+    rows = []
+    for row in reader:
+        # Pinnacle-Quoten: PSH (Home), PSD (Draw), PSA (Away)
+        try:
+            psh = float(row.get("PSH") or row.get("PH", 0))
+            psd = float(row.get("PSD") or row.get("PD", 0))
+            psa = float(row.get("PSA") or row.get("PA", 0))
+        except (ValueError, TypeError):
+            psh = psd = psa = 0
+
+        if psh == 0 or psd == 0 or psa == 0:
+            continue
+
+        # Quoten → Wahrscheinlichkeiten (Overround entfernen)
+        inv_sum = 1/psh + 1/psd + 1/psa
+        p_home = (1/psh) / inv_sum
+        p_draw = (1/psd) / inv_sum
+        p_away = (1/psa) / inv_sum
+
+        rows.append({
+            "home": row.get("HomeTeam", ""),
+            "away": row.get("AwayTeam", ""),
+            "p_home": p_home,
+            "p_draw": p_draw,
+            "p_away": p_away,
+            "home_goals": int(row.get("FTHG", 0)),
+            "away_goals": int(row.get("FTAG", 0)),
+        })
+    return rows
+
+
+# Mapping: football-data.co.uk Teamnamen → OpenLigaDB Teamnamen
+_TEAM_NAME_MAP = {
+    "Bayern Munich": "FC Bayern München",
+    "Dortmund": "Borussia Dortmund",
+    "Leverkusen": "Bayer 04 Leverkusen",
+    "RB Leipzig": "RB Leipzig",
+    "Ein Frankfurt": "Eintracht Frankfurt",
+    "Wolfsburg": "VfL Wolfsburg",
+    "Freiburg": "SC Freiburg",
+    "Hoffenheim": "TSG Hoffenheim",
+    "M'gladbach": "Borussia Mönchengladbach",
+    "Monchengladbach": "Borussia Mönchengladbach",
+    "Union Berlin": "1. FC Union Berlin",
+    "Stuttgart": "VfB Stuttgart",
+    "Werder Bremen": "SV Werder Bremen",
+    "Mainz": "1. FSV Mainz 05",
+    "Augsburg": "FC Augsburg",
+    "Bochum": "VfL Bochum",
+    "Heidenheim": "1. FC Heidenheim 1846",
+    "Darmstadt": "SV Darmstadt 98",
+    "Koln": "1. FC Köln",
+    "FC Koln": "1. FC Köln",
+    "Hertha": "Hertha BSC",
+    "Schalke 04": "FC Schalke 04",
+    "Greuther Furth": "SpVgg Greuther Fürth",
+    "Greuther Fuerth": "SpVgg Greuther Fürth",
+    "Arminia": "DSC Arminia Bielefeld",
+    "Bielefeld": "DSC Arminia Bielefeld",
+    "Holstein Kiel": "Holstein Kiel",
+    "St Pauli": "FC St. Pauli",
+    "Paderborn": "SC Paderborn 07",
+    "Fortuna Dusseldorf": "Fortuna Düsseldorf",
+    "Nurnberg": "1. FC Nürnberg",
+    "Hannover": "Hannover 96",
+}
+
+
+def _normalize_team(name: str) -> str:
+    """Normalisiert football-data.co.uk Teamnamen zu OpenLigaDB-Format."""
+    return _TEAM_NAME_MAP.get(name, name)
+
+
+def odds_to_score_matrix(p_home: float, p_draw: float, p_away: float,
+                         max_goals: int = MAX_GOALS) -> np.ndarray:
+    """
+    Konvertiert Tendenz-Wahrscheinlichkeiten in eine Score-Matrix.
+    Methode: Poisson mit angepassten lambdas, die die Tendenz-Wahrscheinlichkeiten
+    möglichst gut reproduzieren.
+    """
+    from scipy.optimize import minimize_scalar
+
+    # Finde lambda_h, lambda_a die p_home/p_draw/p_away am besten treffen
+    # Nutze Durchschnitt der Bundesliga (1.55 Tore heim, 1.25 Tore auswärts)
+    # und skaliere so, dass Tendenzen passen.
+
+    def objective(log_ratio):
+        # log_ratio = log(lambda_h / lambda_a)
+        # Gesamttore fixiert auf ~2.8
+        total = 2.8
+        ratio = math.exp(log_ratio)
+        lh = total * ratio / (1 + ratio)
+        la = total / (1 + ratio)
+
+        # Berechne Tendenz-Wahrscheinlichkeiten aus Poisson
+        mat = np.zeros((max_goals + 1, max_goals + 1))
+        for gh in range(max_goals + 1):
+            for ga in range(max_goals + 1):
+                mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
+                              math.exp(-la) * la**ga / math.factorial(ga))
+
+        ph = mat[np.tril_indices(max_goals + 1, k=-1)].sum()  # home > away
+        pd = np.trace(mat)  # draw
+        pa = mat[np.triu_indices(max_goals + 1, k=1)].sum()  # away > home
+
+        # Minimize KL-divergence to target
+        target = np.array([p_home, p_draw, p_away])
+        pred = np.array([ph, pd, pa])
+        pred = np.clip(pred, 1e-8, None)
+        return np.sum(target * np.log(target / pred))
+
+    # Auch Gesamttore optimieren
+    best_loss = 1e9
+    best_mat = None
+    for total in [2.2, 2.4, 2.6, 2.8, 3.0, 3.2]:
+        def obj2(log_ratio, tot=total):
+            ratio = math.exp(log_ratio)
+            lh = tot * ratio / (1 + ratio)
+            la = tot / (1 + ratio)
+            mat = np.zeros((max_goals + 1, max_goals + 1))
+            for gh in range(max_goals + 1):
+                for ga in range(max_goals + 1):
+                    mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
+                                  math.exp(-la) * la**ga / math.factorial(ga))
+            ph = np.sum(mat[np.tril_indices(max_goals+1, k=-1)])
+            pd = np.trace(mat)
+            pa = np.sum(mat[np.triu_indices(max_goals+1, k=1)])
+            target = np.array([p_home, p_draw, p_away])
+            pred = np.array([ph, pd, pa])
+            pred = np.clip(pred, 1e-8, None)
+            return np.sum(target * np.log(target / pred))
+
+        res = minimize_scalar(obj2, bounds=(-2, 2), method="bounded")
+        if res.fun < best_loss:
+            best_loss = res.fun
+            ratio = math.exp(res.x)
+            lh = total * ratio / (1 + ratio)
+            la = total / (1 + ratio)
+            mat = np.zeros((max_goals + 1, max_goals + 1))
+            for gh in range(max_goals + 1):
+                for ga in range(max_goals + 1):
+                    mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
+                                  math.exp(-la) * la**ga / math.factorial(ga))
+            best_mat = mat
+
+    best_mat /= best_mat.sum()
+    return best_mat
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +496,22 @@ def best_tip(home: str, away: str, model: dict) -> tuple[int, int, float]:
     return idx[0], idx[1], ev_clipped[idx]
 
 
+def best_tip_combined(home: str, away: str, model: dict,
+                      odds_mat: np.ndarray, weight_odds: float = 0.5) -> tuple[int, int, float]:
+    """
+    Kombiniert Dixon-Coles und Quoten-basierte Score-Matrix.
+    weight_odds=0: nur Modell, weight_odds=1: nur Quoten.
+    """
+    dc_mat = score_matrix(home, away, model)
+    # Gewichtete Mischung der beiden Matrizen
+    combined = (1 - weight_odds) * dc_mat + weight_odds * odds_mat
+    combined /= combined.sum()
+    ev = np.einsum("ra,tpra->tp", combined, _POINTS_TABLE)
+    ev_clipped = ev[:MAX_TIP_GOALS + 1, :MAX_TIP_GOALS + 1]
+    idx = np.unravel_index(ev_clipped.argmax(), ev_clipped.shape)
+    return idx[0], idx[1], ev_clipped[idx]
+
+
 def tendency_str(h: int, a: int) -> str:
     if h > a:
         return "Heimsieg"
@@ -382,7 +580,9 @@ def cmd_backtest(args):
     from_md = args.from_matchday
     to_md = args.to_matchday
 
-    print(f"\n=== BACKTESTING Saison {season}/{season+1}, Spieltage {from_md}–{to_md} ===\n")
+    use_odds = getattr(args, "use_odds", False)
+    mode_str = " [+Odds]" if use_odds else ""
+    print(f"\n=== BACKTESTING Saison {season}/{season+1}, Spieltage {from_md}–{to_md}{mode_str} ===\n")
 
     # Gesamte Saison + Vorsaisons laden, jeweils 1. und 2. Liga
     all_matches = []
@@ -393,6 +593,17 @@ def cmd_backtest(args):
                 all_matches += parse_matches(raw, league, s)
             except Exception as e:
                 print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+
+    # Quoten laden (optional)
+    odds_data = {}
+    if use_odds:
+        try:
+            odds_rows = fetch_odds_csv(season)
+            for row in odds_rows:
+                key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
+                odds_data[key] = row
+        except Exception as e:
+            print(f"  Warnung: Quoten nicht geladen ({e})")
 
     # Nur 1. Liga der aktuellen Saison für Auswertung
     season_matches = [m for m in all_matches if
@@ -429,7 +640,16 @@ def cmd_backtest(args):
             home, away = m["home"], m["away"]
             if home not in model["attack"] or away not in model["attack"]:
                 continue
-            th, ta, ev = best_tip(home, away, model)
+
+            # Quoten verfügbar? → kombinierter Tipp
+            odds_key = (home, away)
+            if use_odds and odds_key in odds_data:
+                od = odds_data[odds_key]
+                odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
+                th, ta, ev = best_tip_combined(home, away, model, odds_mat)
+            else:
+                th, ta, ev = best_tip(home, away, model)
+
             pts = kicktipp_points(th, ta, m["home_goals"], m["away_goals"])
             md_pts += pts
             md_games += 1
@@ -493,6 +713,8 @@ def main():
     p_pred = sub.add_parser("predict", help="Tipps für einen Spieltag berechnen")
     p_pred.add_argument("--season", type=int, required=True, help="Saison (z.B. 2024 für 2024/25)")
     p_pred.add_argument("--matchday", type=int, required=True, help="Spieltag (1–34)")
+    p_pred.add_argument("--use-odds", action="store_true", dest="use_odds",
+                        help="Pinnacle-Quoten einbeziehen (football-data.co.uk)")
 
     # backtest
     p_back = sub.add_parser("backtest", help="Backtesting über eine Saison")
@@ -503,6 +725,8 @@ def main():
                         help="Bis Spieltag (default: 34)")
     p_back.add_argument("--verbose", "-v", action="store_true",
                         help="Einzelergebnisse ausgeben")
+    p_back.add_argument("--use-odds", action="store_true", dest="use_odds",
+                        help="Pinnacle-Quoten einbeziehen (football-data.co.uk)")
 
     args = parser.parse_args()
 
