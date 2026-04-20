@@ -773,6 +773,7 @@ def cmd_backtest(args):
     total_pts = 0
     total_games = 0
     results_by_md = []
+    pts_distribution = {0: 0, 1: 0, 2: 0, 3: 0}
 
     for md in range(from_md, to_md + 1):
         # Training: alles VOR diesem Spieltag
@@ -813,6 +814,7 @@ def cmd_backtest(args):
             pts = kicktipp_points(th, ta, m["home_goals"], m["away_goals"])
             md_pts += pts
             md_games += 1
+            pts_distribution[pts] += 1
             details.append((home, away, th, ta, m["home_goals"], m["away_goals"], pts))
 
         avg = md_pts / md_games if md_games else 0
@@ -839,23 +841,12 @@ def cmd_backtest(args):
     print(f"  Ø / Spiel:  {overall_avg:.3f} Punkte")
     print(f"  Ø / Spiel (max möglich): 3.000")
     print(f"\n  Punkteverteilung:")
-
-    # Schnelle Statistik
-    all_pts = []
-    for md, md_pts, md_games, _ in results_by_md:
-        # Rekonstruieren nicht nötig – einfach pro Spieltag ausgeben
-        pass
-
-    # Grobe Einordnung
-    if overall_avg >= 1.8:
-        rating = "★★★ Sehr gut"
-    elif overall_avg >= 1.4:
-        rating = "★★  Gut"
-    elif overall_avg >= 1.0:
-        rating = "★   Durchschnitt"
-    else:
-        rating = "    Schwach"
-    print(f"  Bewertung:  {rating}")
+    for p in [3, 2, 1, 0]:
+        n = pts_distribution[p]
+        pct = n / total_games * 100 if total_games else 0
+        bar = "█" * int(pct / 2)
+        label = {3: "Exakt  ", 2: "Diff/Remis", 1: "Tendenz   ", 0: "Falsch    "}[p]
+        print(f"    {p} Pkt ({label}): {n:3d} ({pct:4.1f}%) {bar}")
     print()
 
 
