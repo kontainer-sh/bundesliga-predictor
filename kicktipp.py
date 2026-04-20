@@ -337,23 +337,43 @@ def fetch_live_odds() -> dict:
     if not api_key:
         return {}
 
-    url = f"{ODDS_API_URL}/sports/{ODDS_API_SPORT}/odds/"
-    params = {
-        "apiKey": api_key,
-        "regions": "eu",
-        "markets": "h2h",
-    }
-    print("  Lade Live-Quoten (The Odds API)...", end=" ", flush=True)
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"Fehler: {e}")
-        return {}
+    # Cache: max 6 Stunden alt, dann neu laden
+    CACHE_DIR.mkdir(exist_ok=True)
+    cache_file = CACHE_DIR / "live_odds.json"
+    max_age = 6 * 3600  # 6 Stunden
 
-    data = resp.json()
-    remaining = resp.headers.get("x-requests-remaining", "?")
-    print(f"{len(data)} Spiele. (Requests übrig: {remaining})")
+    if cache_file.exists():
+        age = datetime.now().timestamp() - cache_file.stat().st_mtime
+        if age < max_age:
+            print(f"  Live-Quoten: Cache ({age/3600:.1f}h alt)", flush=True)
+            with open(cache_file) as f:
+                data = json.load(f)
+        else:
+            data = None
+    else:
+        data = None
+
+    if data is None:
+        url = f"{ODDS_API_URL}/sports/{ODDS_API_SPORT}/odds/"
+        params = {
+            "apiKey": api_key,
+            "regions": "eu",
+            "markets": "h2h",
+        }
+        print("  Lade Live-Quoten (The Odds API)...", end=" ", flush=True)
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            resp.raise_for_status()
+        except Exception as e:
+            print(f"Fehler: {e}")
+            return {}
+
+        data = resp.json()
+        remaining = resp.headers.get("x-requests-remaining", "?")
+        print(f"{len(data)} Spiele. (Credits übrig: {remaining})")
+
+        with open(cache_file, "w") as f:
+            json.dump(data, f)
 
     odds_dict = {}
     for event in data:
