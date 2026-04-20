@@ -41,6 +41,8 @@ REG_LAMBDA = 0.0       # L2-Regularisierungsstärke (0 = keine)
 NEGBIN_R = None        # Neg. Binomial Dispersionsparameter (None = Poisson)
 
 FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281"
+ODDS_API_URL = "https://api.the-odds-api.com/v4"
+ODDS_API_SPORT = "soccer_germany_bundesliga"
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +318,100 @@ def odds_to_score_matrix(p_home: float, p_draw: float, p_away: float,
     return best_mat
 
 
+def fetch_live_odds() -> dict:
+    """
+    Holt aktuelle Quoten von The Odds API (kostenlos, 500 Req/Monat).
+    Braucht ODDS_API_KEY Umgebungsvariable.
+    Gibt dict {(home, away): {"p_home", "p_draw", "p_away"}} zurück.
+    """
+    api_key = os.environ.get("ODDS_API_KEY", "")
+    if not api_key:
+        return {}
+
+    url = f"{ODDS_API_URL}/sports/{ODDS_API_SPORT}/odds/"
+    params = {
+        "apiKey": api_key,
+        "regions": "eu",
+        "markets": "h2h",
+        "bookmakers": "pinnacle",
+    }
+    print("  Lade Live-Quoten (The Odds API)...", end=" ", flush=True)
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"Fehler: {e}")
+        return {}
+
+    data = resp.json()
+    remaining = resp.headers.get("x-requests-remaining", "?")
+    print(f"{len(data)} Spiele. (Requests übrig: {remaining})")
+
+    odds_dict = {}
+    for event in data:
+        home_team = event.get("home_team", "")
+        away_team = event.get("away_team", "")
+
+        # Suche Pinnacle-Quoten (Fallback: erster Bookmaker)
+        bookmakers = event.get("bookmakers", [])
+        if not bookmakers:
+            continue
+        bm = bookmakers[0]
+        markets = bm.get("markets", [])
+        h2h = next((m for m in markets if m["key"] == "h2h"), None)
+        if not h2h:
+            continue
+
+        outcomes = {o["name"]: o["price"] for o in h2h["outcomes"]}
+        price_h = outcomes.get(home_team, 0)
+        price_d = outcomes.get("Draw", 0)
+        price_a = outcomes.get(away_team, 0)
+
+        if price_h == 0 or price_d == 0 or price_a == 0:
+            continue
+
+        # Overround entfernen
+        inv_sum = 1/price_h + 1/price_d + 1/price_a
+        p_home = (1/price_h) / inv_sum
+        p_draw = (1/price_d) / inv_sum
+        p_away = (1/price_a) / inv_sum
+
+        # Team-Name normalisieren (Odds API verwendet englische Namen)
+        home_norm = _normalize_team(home_team)
+        away_norm = _normalize_team(away_team)
+        odds_dict[(home_norm, away_norm)] = {
+            "p_home": p_home, "p_draw": p_draw, "p_away": p_away,
+        }
+
+    return odds_dict
+
+
+# Odds API Teamnamen-Mapping (zusätzlich zu football-data.co.uk)
+_TEAM_NAME_MAP.update({
+    "Borussia Dortmund": "Borussia Dortmund",
+    "Bayern Munich": "FC Bayern München",
+    "Bayer 04 Leverkusen": "Bayer 04 Leverkusen",
+    "Eintracht Frankfurt": "Eintracht Frankfurt",
+    "VfB Stuttgart": "VfB Stuttgart",
+    "SC Freiburg": "SC Freiburg",
+    "VfL Wolfsburg": "VfL Wolfsburg",
+    "Borussia Monchengladbach": "Borussia Mönchengladbach",
+    "Borussia Mönchengladbach": "Borussia Mönchengladbach",
+    "TSG 1899 Hoffenheim": "TSG Hoffenheim",
+    "TSG Hoffenheim": "TSG Hoffenheim",
+    "1. FC Union Berlin": "1. FC Union Berlin",
+    "1. FSV Mainz 05": "1. FSV Mainz 05",
+    "FC Augsburg": "FC Augsburg",
+    "SV Werder Bremen": "SV Werder Bremen",
+    "VfL Bochum": "VfL Bochum",
+    "1. FC Heidenheim 1846": "1. FC Heidenheim 1846",
+    "FC St. Pauli": "FC St. Pauli",
+    "Holstein Kiel": "Holstein Kiel",
+    "RB Leipzig": "RB Leipzig",
+    "FC Bayern Munich": "FC Bayern München",
+})
+
+
 # ---------------------------------------------------------------------------
 # Dixon-Coles Modell
 # ---------------------------------------------------------------------------
@@ -525,7 +621,9 @@ def tendency_str(h: int, a: int) -> str:
 # ---------------------------------------------------------------------------
 
 def cmd_predict(args):
-    print(f"\n=== PROGNOSE Spieltag {args.matchday}, Saison {args.season}/{args.season+1} ===\n")
+    use_odds = getattr(args, "use_odds", False) or bool(os.environ.get("ODDS_API_KEY"))
+    mode_str = " [+Odds]" if use_odds else ""
+    print(f"\n=== PROGNOSE Spieltag {args.matchday}, Saison {args.season}/{args.season+1}{mode_str} ===\n")
 
     # Trainingsdaten: aktuelle + Vorsaisons, jeweils 1. und 2. Liga
     all_matches = []
@@ -550,6 +648,13 @@ def cmd_predict(args):
     ref_date = datetime.now(tz=timezone.utc)
     model = fit_dixon_coles(training, ref_date)
 
+    # Live-Quoten holen (optional)
+    live_odds = {}
+    if use_odds:
+        live_odds = fetch_live_odds()
+        if not live_odds:
+            print("  Hinweis: Keine Live-Quoten verfügbar, nutze nur Modell.")
+
     # Fixtures laden
     try:
         fixtures = fetch_matchday_fixtures(args.season, args.matchday)
@@ -564,9 +669,19 @@ def cmd_predict(args):
         if home not in model["attack"] or away not in model["attack"]:
             print(f"  {home} vs {away}: Team unbekannt (zu wenig Trainingsdaten)")
             continue
-        th, ta, ev = best_tip(home, away, model)
+
+        odds_key = (home, away)
+        if live_odds and odds_key in live_odds:
+            od = live_odds[odds_key]
+            odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
+            th, ta, ev = best_tip_combined(home, away, model, odds_mat)
+            marker = "⚡"
+        else:
+            th, ta, ev = best_tip(home, away, model)
+            marker = " "
+
         tend = tendency_str(th, ta)
-        print(f"  {home:<38} {th}:{ta}  {ev:>6.3f}  {tend}")
+        print(f"{marker} {home:<38} {th}:{ta}  {ev:>6.3f}  {tend}")
 
     print()
 
