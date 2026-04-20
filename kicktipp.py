@@ -342,7 +342,6 @@ def fetch_live_odds() -> dict:
         "apiKey": api_key,
         "regions": "eu",
         "markets": "h2h",
-        "bookmakers": "pinnacle",
     }
     print("  Lade Live-Quoten (The Odds API)...", end=" ", flush=True)
     try:
@@ -365,7 +364,7 @@ def fetch_live_odds() -> dict:
         bookmakers = event.get("bookmakers", [])
         if not bookmakers:
             continue
-        bm = bookmakers[0]
+        bm = next((b for b in bookmakers if b["key"] == "pinnacle"), bookmakers[0])
         markets = bm.get("markets", [])
         h2h = next((m for m in markets if m["key"] == "h2h"), None)
         if not h2h:
@@ -418,6 +417,10 @@ _TEAM_NAME_MAP.update({
     "Holstein Kiel": "Holstein Kiel",
     "RB Leipzig": "RB Leipzig",
     "FC Bayern Munich": "FC Bayern München",
+    "Bayer Leverkusen": "Bayer 04 Leverkusen",
+    "FSV Mainz 05": "1. FSV Mainz 05",
+    "1. FC Heidenheim": "1. FC Heidenheim 1846",
+    "Hamburger SV": "Hamburger SV",
 })
 
 
@@ -617,6 +620,20 @@ def best_tip_combined(home: str, away: str, model: dict,
     return idx[0], idx[1], ev_clipped[idx]
 
 
+def _find_odds(odds_dict: dict, home: str, away: str) -> dict | None:
+    """Sucht Quoten für ein Fixture — auch bei vertauschten Teams."""
+    if not odds_dict:
+        return None
+    # Exakter Match
+    if (home, away) in odds_dict:
+        return odds_dict[(home, away)]
+    # Umgekehrte Paarung (Hin-/Rückspiel) → Wahrscheinlichkeiten tauschen
+    if (away, home) in odds_dict:
+        od = odds_dict[(away, home)]
+        return {"p_home": od["p_away"], "p_draw": od["p_draw"], "p_away": od["p_home"]}
+    return None
+
+
 def tendency_str(h: int, a: int) -> str:
     if h > a:
         return "Heimsieg"
@@ -679,9 +696,8 @@ def cmd_predict(args):
             print(f"  {home} vs {away}: Team unbekannt (zu wenig Trainingsdaten)")
             continue
 
-        odds_key = (home, away)
-        if live_odds and odds_key in live_odds:
-            od = live_odds[odds_key]
+        od = _find_odds(live_odds, home, away)
+        if od:
             odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
             th, ta, ev = best_tip_combined(home, away, model, odds_mat)
             marker = "⚡"
@@ -766,9 +782,8 @@ def cmd_backtest(args):
                 continue
 
             # Quoten verfügbar? → kombinierter Tipp
-            odds_key = (home, away)
-            if use_odds and odds_key in odds_data:
-                od = odds_data[odds_key]
+            od = _find_odds(odds_data, home, away) if use_odds else None
+            if od:
                 odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
                 th, ta, ev = best_tip_combined(home, away, model, odds_mat)
             else:
