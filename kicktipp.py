@@ -688,8 +688,8 @@ def cmd_predict(args):
         print(f"Fehler beim Laden der Begegnungen: {e}")
         sys.exit(1)
 
-    print(f"\n{'Begegnung':<40} {'Tipp':>8}  {'E[Pkt]':>7}  Tendenz")
-    print("-" * 75)
+    print(f"\n{'Begegnung':<52} {'Tipp':>8}  {'E[Pkt]':>7}  Tendenz")
+    print("-" * 85)
     for f in fixtures:
         home, away = f["home"], f["away"]
         if home not in model["attack"] or away not in model["attack"]:
@@ -705,8 +705,9 @@ def cmd_predict(args):
             th, ta, ev = best_tip(home, away, model)
             marker = " "
 
+        label = f"{home} – {away}"
         tend = tendency_str(th, ta)
-        print(f"{marker} {home:<38} {th}:{ta}  {ev:>6.3f}  {tend}")
+        print(f"{marker} {label:<50} {th}:{ta}  {ev:>6.3f}  {tend}")
 
     print()
 
