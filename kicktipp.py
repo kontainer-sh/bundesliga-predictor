@@ -1,0 +1,516 @@
+#!/usr/bin/env python3
+"""
+Kicktipp Bundesliga Predictor
+==============================
+Dixon-Coles Modell mit Zeitgewichtung + Backtesting gegen Kicktipp-Punkteschema.
+
+Datenquelle: OpenLigaDB (kostenlos, kein API-Key nötig)
+
+Verwendung:
+  python kicktipp.py predict --season 2024 --matchday 30
+  python kicktipp.py backtest --season 2023
+  python kicktipp.py backtest --season 2023 --from-matchday 10 --to-matchday 34
+"""
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import numpy as np
+import requests
+from scipy.optimize import minimize
+
+CACHE_DIR = Path(__file__).parent / ".cache"
+
+# ---------------------------------------------------------------------------
+# Konstanten
+# ---------------------------------------------------------------------------
+
+OPENLIGADB = "https://api.openligadb.de"
+MAX_GOALS = 8          # Ergebnismatrix bis 8:8
+MAX_TIP_GOALS = 2      # Tipps maximal bis 2 Tore pro Team
+HALF_LIFE_DAYS = 300   # Zeitgewichtung: ~10 Monate Halbwertszeit
+MIN_MATCHES = 50       # Mindestanzahl Spiele für Modelltraining
+NUM_PREV_SEASONS = 3   # Anzahl Vorsaisons für Training
+REG_LAMBDA = 0.0       # L2-Regularisierungsstärke (0 = keine)
+NEGBIN_R = None        # Neg. Binomial Dispersionsparameter (None = Poisson)
+
+
+# ---------------------------------------------------------------------------
+# Kicktipp Punkteschema
+# ---------------------------------------------------------------------------
+
+def kicktipp_points(tip_h: int, tip_a: int, real_h: int, real_a: int) -> int:
+    """Berechnet Kicktipp-Punkte (1-3 Schema)."""
+    if tip_h == real_h and tip_a == real_a:
+        return 3  # Exaktes Ergebnis
+    tip_diff = tip_h - tip_a
+    real_diff = real_h - real_a
+    tip_tendency = np.sign(tip_diff)
+    real_tendency = np.sign(real_diff)
+    if tip_tendency != real_tendency:
+        return 0
+    # Tendenz stimmt
+    if real_h == real_a:
+        return 2  # Unentschieden: Tendenz richtig
+    if tip_diff == real_diff:
+        return 2  # Sieg: Tordifferenz richtig
+    return 1  # Sieg: nur Tendenz richtig
+
+
+# ---------------------------------------------------------------------------
+# OpenLigaDB Datenabruf
+# ---------------------------------------------------------------------------
+
+def fetch_season(season: int, league: str = "bl1") -> list[dict]:
+    """Lädt alle Spieltage einer Saison (bl1=1. Liga, bl2=2. Liga), mit Dateicache."""
+    label = "1. BL" if league == "bl1" else "2. BL"
+    CACHE_DIR.mkdir(exist_ok=True)
+    cache_file = CACHE_DIR / f"{league}_{season}.json"
+
+    if cache_file.exists():
+        print(f"  {label} {season}/{season+1}: Cache", flush=True)
+        with open(cache_file) as f:
+            return json.load(f)
+
+    url = f"{OPENLIGADB}/getmatchdata/{league}/{season}"
+    print(f"  Lade {label} {season}/{season+1}...", end=" ", flush=True)
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    matches = resp.json()
+    print(f"{len(matches)} Spiele geladen.")
+
+    with open(cache_file, "w") as f:
+        json.dump(matches, f)
+
+    return matches
+
+
+def parse_matches(raw: list[dict], league: str = "bl1", season: int = 0) -> list[dict]:
+    """Parst Rohdaten in einheitliches Format."""
+    parsed = []
+    for m in raw:
+        results = m.get("matchResults", [])
+        # Endergebnis bevorzugen (resultTypeID == 2)
+        final = next((r for r in results if r["resultTypeID"] == 2), None)
+        if final is None:
+            continue  # Noch nicht gespielt
+        date_str = m.get("matchDateTimeUTC", "")
+        try:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        except Exception:
+            continue
+        parsed.append({
+            "matchday": m["group"]["groupOrderID"],
+            "date": dt,
+            "home": m["team1"]["teamName"],
+            "away": m["team2"]["teamName"],
+            "home_goals": final["pointsTeam1"],
+            "away_goals": final["pointsTeam2"],
+            "league": league,
+            "season": season,
+        })
+    return parsed
+
+
+def fetch_matchday_fixtures(season: int, matchday: int) -> list[dict]:
+    """Lädt Begegnungen eines einzelnen Spieltags (noch nicht gespielt)."""
+    url = f"{OPENLIGADB}/getmatchdata/bl1/{season}/{matchday}"
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    raw = resp.json()
+    fixtures = []
+    for m in raw:
+        fixtures.append({
+            "matchday": matchday,
+            "home": m["team1"]["teamName"],
+            "away": m["team2"]["teamName"],
+        })
+    return fixtures
+
+
+# ---------------------------------------------------------------------------
+# Dixon-Coles Modell
+# ---------------------------------------------------------------------------
+
+def time_weight(match_date: datetime, ref_date: datetime, half_life_days: float | None = None) -> float:
+    """Exponentielles Zeitgewicht – neuere Spiele zählen mehr."""
+    if half_life_days is None:
+        half_life_days = HALF_LIFE_DAYS
+    delta = (ref_date - match_date).total_seconds() / 86400
+    delta = max(delta, 0)
+    return math.exp(-math.log(2) * delta / half_life_days)
+
+
+def dc_rho_correction(goals_h: int, goals_a: int, lambda_h: float, lambda_a: float, rho: float) -> float:
+    """Dixon-Coles Korrekturfaktor für niedrige Scores."""
+    if goals_h == 0 and goals_a == 0:
+        return 1 - lambda_h * lambda_a * rho
+    elif goals_h == 1 and goals_a == 0:
+        return 1 + lambda_a * rho
+    elif goals_h == 0 and goals_a == 1:
+        return 1 + lambda_h * rho
+    elif goals_h == 1 and goals_a == 1:
+        return 1 - rho
+    return 1.0
+
+
+def build_team_index(matches: list[dict]) -> dict[str, int]:
+    teams = sorted({m["home"] for m in matches} | {m["away"] for m in matches})
+    return {t: i for i, t in enumerate(teams)}
+
+
+def _precompute_match_arrays(matches: list[dict], team_idx: dict):
+    """Vorberechnung der Match-Arrays für vektorisierte Likelihood."""
+    hi = np.array([team_idx[m["home"]] for m in matches])
+    ai = np.array([team_idx[m["away"]] for m in matches])
+    gh = np.array([m["home_goals"] for m in matches], dtype=np.float64)
+    ga = np.array([m["away_goals"] for m in matches], dtype=np.float64)
+    lgamma_gh = np.array([math.lgamma(g + 1) for g in gh])
+    lgamma_ga = np.array([math.lgamma(g + 1) for g in ga])
+    return hi, ai, gh, ga, lgamma_gh, lgamma_ga
+
+
+def neg_log_likelihood(params: np.ndarray, match_arrays: tuple, n: int,
+                       weights: np.ndarray, reg_lambda: float = 0.0) -> float:
+    attack = params[:n]
+    defense = params[n:2*n]
+    home_adv = params[2*n]
+    rho = params[2*n + 1]
+
+    hi, ai, gh, ga, lgamma_gh, lgamma_ga = match_arrays
+
+    lh = np.exp(attack[hi] - defense[ai] + home_adv)
+    la = np.exp(attack[ai] - defense[hi])
+
+    # Poisson log-likelihood (vektorisiert)
+    log_lh = np.log(lh)
+    log_la = np.log(la)
+    ll = (gh * log_lh - lh - lgamma_gh +
+          ga * log_la - la - lgamma_ga)
+
+    # Dixon-Coles Korrektur (vektorisiert)
+    tau = np.ones(len(gh))
+    m00 = (gh == 0) & (ga == 0)
+    m10 = (gh == 1) & (ga == 0)
+    m01 = (gh == 0) & (ga == 1)
+    m11 = (gh == 1) & (ga == 1)
+    tau[m00] = 1 - lh[m00] * la[m00] * rho
+    tau[m10] = 1 + la[m10] * rho
+    tau[m01] = 1 + lh[m01] * rho
+    tau[m11] = 1 - rho
+
+    if np.any(tau <= 0):
+        return 1e9
+
+    ll += np.log(tau)
+
+    nll = -np.dot(weights, ll)
+
+    # L2-Regularisierung auf Attack- und Defense-Parameter
+    if reg_lambda > 0:
+        nll += reg_lambda * (np.sum(attack**2) + np.sum(defense**2))
+
+    return nll
+
+
+def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
+    """Schätzt Dixon-Coles Parameter via MLE."""
+    team_idx = build_team_index(matches)
+    n = len(team_idx)
+    weights = np.array([time_weight(m["date"], ref_date) for m in matches])
+    match_arrays = _precompute_match_arrays(matches, team_idx)
+
+    # Startwerte
+    x0 = np.zeros(2 * n + 2)
+    x0[2*n] = 0.3   # Heimvorteil
+    x0[2*n+1] = -0.1  # rho
+
+    # Identifikation: attack[0] = 0 fixieren
+    def objective(p):
+        p_full = np.concatenate([[0.0], p[:(n-1)], p[(n-1):]])
+        return neg_log_likelihood(p_full, match_arrays, n, weights, REG_LAMBDA)
+
+    x0_free = np.concatenate([x0[1:n], x0[n:]])
+    result = minimize(objective, x0_free, method="L-BFGS-B",
+                      options={"maxiter": 500, "ftol": 1e-9})
+
+    p_full = np.concatenate([[0.0], result.x[:(n-1)], result.x[(n-1):]])
+    attack = {t: p_full[i] for t, i in team_idx.items()}
+    defense = {t: p_full[n + i] for t, i in team_idx.items()}
+
+    return {
+        "attack": attack,
+        "defense": defense,
+        "home_adv": p_full[2*n],
+        "rho": p_full[2*n+1],
+        "teams": list(team_idx.keys()),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ergebnismatrix & Tipp-Optimierung
+# ---------------------------------------------------------------------------
+
+def score_matrix(home: str, away: str, model: dict, max_goals: int = MAX_GOALS) -> np.ndarray:
+    """Berechnet P(home_goals=i, away_goals=j) für alle i,j."""
+    from scipy.special import gammaln
+    lh = math.exp(model["attack"][home] - model["defense"][away] + model["home_adv"])
+    la = math.exp(model["attack"][away] - model["defense"][home])
+    rho = model["rho"]
+
+    mat = np.zeros((max_goals + 1, max_goals + 1))
+    for gh in range(max_goals + 1):
+        for ga in range(max_goals + 1):
+            if NEGBIN_R is not None:
+                r = NEGBIN_R
+                ph = r / (r + lh)
+                pa = r / (r + la)
+                p_h = math.exp(gammaln(gh+r) - gammaln(gh+1) - gammaln(r)
+                              + r*math.log(ph) + gh*math.log(1-ph))
+                p_a = math.exp(gammaln(ga+r) - gammaln(ga+1) - gammaln(r)
+                              + r*math.log(pa) + ga*math.log(1-pa))
+                p = p_h * p_a
+            else:
+                p = (math.exp(-lh) * lh**gh / math.factorial(gh) *
+                     math.exp(-la) * la**ga / math.factorial(ga))
+            p *= dc_rho_correction(gh, ga, lh, la, rho)
+            mat[gh, ga] = max(p, 0)
+
+    mat /= mat.sum()  # Renormalisieren
+    return mat
+
+
+def _build_points_table(max_goals: int = MAX_GOALS) -> np.ndarray:
+    """Vorberechnung: points[th, ta, rh, ra] = Kicktipp-Punkte."""
+    n = max_goals + 1
+    table = np.zeros((n, n, n, n), dtype=np.float64)
+    for th in range(n):
+        for ta in range(n):
+            for rh in range(n):
+                for ra in range(n):
+                    table[th, ta, rh, ra] = kicktipp_points(th, ta, rh, ra)
+    return table
+
+_POINTS_TABLE = _build_points_table()
+
+
+def best_tip(home: str, away: str, model: dict) -> tuple[int, int, float]:
+    """
+    Wählt den Tipp mit dem höchsten erwarteten Kicktipp-Punktewert.
+    Gibt (tip_h, tip_a, expected_points) zurück.
+    """
+    mat = score_matrix(home, away, model)
+    # ev[th, ta] = sum over rh,ra of mat[rh,ra] * points[th,ta,rh,ra]
+    ev = np.einsum("ra,tpra->tp", mat, _POINTS_TABLE)
+    # Nur Tipps bis MAX_TIP_GOALS berücksichtigen
+    ev_clipped = ev[:MAX_TIP_GOALS + 1, :MAX_TIP_GOALS + 1]
+    idx = np.unravel_index(ev_clipped.argmax(), ev_clipped.shape)
+    return idx[0], idx[1], ev_clipped[idx]
+
+
+def tendency_str(h: int, a: int) -> str:
+    if h > a:
+        return "Heimsieg"
+    elif h < a:
+        return "Auswärtssieg"
+    return "Unentschieden"
+
+
+# ---------------------------------------------------------------------------
+# CLI: predict
+# ---------------------------------------------------------------------------
+
+def cmd_predict(args):
+    print(f"\n=== PROGNOSE Spieltag {args.matchday}, Saison {args.season}/{args.season+1} ===\n")
+
+    # Trainingsdaten: aktuelle + Vorsaisons, jeweils 1. und 2. Liga
+    all_matches = []
+    for s in range(args.season - NUM_PREV_SEASONS, args.season + 1):
+        for league in ["bl1", "bl2"]:
+            try:
+                raw = fetch_season(s, league)
+                all_matches += parse_matches(raw, league, s)
+            except Exception as e:
+                print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+
+    # Nur Spiele vor aktuellem Spieltag dieser Saison als Training
+    training = [m for m in all_matches
+                if not (m["matchday"] >= args.matchday and
+                        m["date"].year >= args.season)]
+
+    if len(training) < MIN_MATCHES:
+        print(f"Fehler: Nur {len(training)} Trainingsmatches – zu wenig für zuverlässige Prognose.")
+        sys.exit(1)
+
+    print(f"\nTrainiere Dixon-Coles Modell auf {len(training)} Spielen...")
+    ref_date = datetime.now(tz=timezone.utc)
+    model = fit_dixon_coles(training, ref_date)
+
+    # Fixtures laden
+    try:
+        fixtures = fetch_matchday_fixtures(args.season, args.matchday)
+    except Exception as e:
+        print(f"Fehler beim Laden der Begegnungen: {e}")
+        sys.exit(1)
+
+    print(f"\n{'Begegnung':<40} {'Tipp':>8}  {'E[Pkt]':>7}  Tendenz")
+    print("-" * 75)
+    for f in fixtures:
+        home, away = f["home"], f["away"]
+        if home not in model["attack"] or away not in model["attack"]:
+            print(f"  {home} vs {away}: Team unbekannt (zu wenig Trainingsdaten)")
+            continue
+        th, ta, ev = best_tip(home, away, model)
+        tend = tendency_str(th, ta)
+        print(f"  {home:<38} {th}:{ta}  {ev:>6.3f}  {tend}")
+
+    print()
+
+
+# ---------------------------------------------------------------------------
+# CLI: backtest
+# ---------------------------------------------------------------------------
+
+def cmd_backtest(args):
+    season = args.season
+    from_md = args.from_matchday
+    to_md = args.to_matchday
+
+    print(f"\n=== BACKTESTING Saison {season}/{season+1}, Spieltage {from_md}–{to_md} ===\n")
+
+    # Gesamte Saison + Vorsaisons laden, jeweils 1. und 2. Liga
+    all_matches = []
+    for s in range(season - NUM_PREV_SEASONS, season + 1):
+        for league in ["bl1", "bl2"]:
+            try:
+                raw = fetch_season(s, league)
+                all_matches += parse_matches(raw, league, s)
+            except Exception as e:
+                print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+
+    # Nur 1. Liga der aktuellen Saison für Auswertung
+    season_matches = [m for m in all_matches if
+                      m["league"] == "bl1" and m["season"] == season]
+
+    total_pts = 0
+    total_games = 0
+    results_by_md = []
+
+    for md in range(from_md, to_md + 1):
+        # Training: alles VOR diesem Spieltag
+        cutoff_matches = [m for m in season_matches if m["matchday"] < md]
+        prev_season = [m for m in all_matches if m not in season_matches]
+        training = prev_season + cutoff_matches
+
+        if len(training) < MIN_MATCHES:
+            print(f"  Spieltag {md:2d}: Übersprungen (nur {len(training)} Trainingsmatches)")
+            continue
+
+        # Modell trainieren
+        # Referenzdatum = erster Match des Spieltags
+        md_matches = [m for m in season_matches if m["matchday"] == md]
+        if not md_matches:
+            continue
+        ref_date = min(m["date"] for m in md_matches)
+
+        model = fit_dixon_coles(training, ref_date)
+
+        # Tipps & Punkte
+        md_pts = 0
+        md_games = 0
+        details = []
+        for m in md_matches:
+            home, away = m["home"], m["away"]
+            if home not in model["attack"] or away not in model["attack"]:
+                continue
+            th, ta, ev = best_tip(home, away, model)
+            pts = kicktipp_points(th, ta, m["home_goals"], m["away_goals"])
+            md_pts += pts
+            md_games += 1
+            details.append((home, away, th, ta, m["home_goals"], m["away_goals"], pts))
+
+        avg = md_pts / md_games if md_games else 0
+        total_pts += md_pts
+        total_games += md_games
+        results_by_md.append((md, md_pts, md_games, avg))
+
+        print(f"  Spieltag {md:2d}: {md_pts:3d} Pkt / {md_games} Spiele  (Ø {avg:.2f})")
+        if args.verbose:
+            for home, away, th, ta, rh, ra, pts in details:
+                flag = "✓" if pts >= 2 else "✗"
+                print(f"       {flag} {home} vs {away}: Tipp {th}:{ta}, Real {rh}:{ra} → {pts} Pkt")
+
+    if total_games == 0:
+        print("Keine Spiele ausgewertet.")
+        return
+
+    overall_avg = total_pts / total_games
+    max_possible = total_games * 3
+
+    print(f"\n{'='*50}")
+    print(f"  Gesamt:     {total_pts} / {max_possible} mögliche Punkte")
+    print(f"  Spiele:     {total_games}")
+    print(f"  Ø / Spiel:  {overall_avg:.3f} Punkte")
+    print(f"  Ø / Spiel (max möglich): 3.000")
+    print(f"\n  Punkteverteilung:")
+
+    # Schnelle Statistik
+    all_pts = []
+    for md, md_pts, md_games, _ in results_by_md:
+        # Rekonstruieren nicht nötig – einfach pro Spieltag ausgeben
+        pass
+
+    # Grobe Einordnung
+    if overall_avg >= 1.8:
+        rating = "★★★ Sehr gut"
+    elif overall_avg >= 1.4:
+        rating = "★★  Gut"
+    elif overall_avg >= 1.0:
+        rating = "★   Durchschnitt"
+    else:
+        rating = "    Schwach"
+    print(f"  Bewertung:  {rating}")
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Main / Argparse
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Kicktipp Bundesliga Predictor – Dixon-Coles mit Zeitgewichtung"
+    )
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    # predict
+    p_pred = sub.add_parser("predict", help="Tipps für einen Spieltag berechnen")
+    p_pred.add_argument("--season", type=int, required=True, help="Saison (z.B. 2024 für 2024/25)")
+    p_pred.add_argument("--matchday", type=int, required=True, help="Spieltag (1–34)")
+
+    # backtest
+    p_back = sub.add_parser("backtest", help="Backtesting über eine Saison")
+    p_back.add_argument("--season", type=int, required=True, help="Saison (z.B. 2023 für 2023/24)")
+    p_back.add_argument("--from-matchday", type=int, default=1, dest="from_matchday",
+                        help="Ab Spieltag (default: 1)")
+    p_back.add_argument("--to-matchday", type=int, default=34, dest="to_matchday",
+                        help="Bis Spieltag (default: 34)")
+    p_back.add_argument("--verbose", "-v", action="store_true",
+                        help="Einzelergebnisse ausgeben")
+
+    args = parser.parse_args()
+
+    if args.cmd == "predict":
+        cmd_predict(args)
+    elif args.cmd == "backtest":
+        cmd_backtest(args)
+
+
+if __name__ == "__main__":
+    main()
