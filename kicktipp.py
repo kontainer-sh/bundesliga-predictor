@@ -197,7 +197,7 @@ def fetch_odds_csv(season: int) -> list[dict]:
         p_draw = (1/psd) / inv_sum
         p_away = (1/psa) / inv_sum
 
-        rows.append({
+        entry = {
             "home": row.get("HomeTeam", ""),
             "away": row.get("AwayTeam", ""),
             "p_home": p_home,
@@ -205,7 +205,20 @@ def fetch_odds_csv(season: int) -> list[dict]:
             "p_away": p_away,
             "home_goals": int(row.get("FTHG", 0)),
             "away_goals": int(row.get("FTAG", 0)),
-        })
+        }
+
+        # Pinnacle Over/Under 2.5
+        try:
+            p_ov = float(row.get("P>2.5") or 0)
+            p_un = float(row.get("P<2.5") or 0)
+            if p_ov > 0 and p_un > 0:
+                inv_ou = 1/p_ov + 1/p_un
+                entry["p_over"] = (1/p_ov) / inv_ou
+                entry["ou_line"] = 2.5
+        except (ValueError, TypeError):
+            pass
+
+        rows.append(entry)
     return rows
 
 
@@ -252,76 +265,91 @@ def _normalize_team(name: str) -> str:
 
 
 def odds_to_score_matrix(p_home: float, p_draw: float, p_away: float,
+                         p_over: float | None = None, ou_line: float = 2.5,
                          max_goals: int = MAX_GOALS) -> np.ndarray:
     """
-    Konvertiert Tendenz-Wahrscheinlichkeiten in eine Score-Matrix.
-    Methode: Poisson mit angepassten lambdas, die die Tendenz-Wahrscheinlichkeiten
-    möglichst gut reproduzieren.
+    Konvertiert Quoten-Wahrscheinlichkeiten in eine Score-Matrix.
+    Mit Over/Under: 2D-Optimierung (Ratio + Total).
+    Ohne: Grid-Search über Gesamttore.
     """
-    from scipy.optimize import minimize_scalar
+    from scipy.optimize import minimize as scipy_minimize
 
-    # Finde lambda_h, lambda_a die p_home/p_draw/p_away am besten treffen
-    # Nutze Durchschnitt der Bundesliga (1.55 Tore heim, 1.25 Tore auswärts)
-    # und skaliere so, dass Tendenzen passen.
-
-    def objective(log_ratio):
-        # log_ratio = log(lambda_h / lambda_a)
-        # Gesamttore fixiert auf ~2.8
-        total = 2.8
-        ratio = math.exp(log_ratio)
-        lh = total * ratio / (1 + ratio)
-        la = total / (1 + ratio)
-
-        # Berechne Tendenz-Wahrscheinlichkeiten aus Poisson
+    def _poisson_matrix(lh, la):
         mat = np.zeros((max_goals + 1, max_goals + 1))
         for gh in range(max_goals + 1):
             for ga in range(max_goals + 1):
                 mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
                               math.exp(-la) * la**ga / math.factorial(ga))
+        return mat
 
-        ph = mat[np.tril_indices(max_goals + 1, k=-1)].sum()  # home > away
-        pd = np.trace(mat)  # draw
-        pa = mat[np.triu_indices(max_goals + 1, k=1)].sum()  # away > home
+    def _tendency_from_mat(mat):
+        ph = np.sum(mat[np.tril_indices(max_goals+1, k=-1)])
+        pd = np.trace(mat)
+        pa = np.sum(mat[np.triu_indices(max_goals+1, k=1)])
+        return ph, pd, pa
 
-        # Minimize KL-divergence to target
-        target = np.array([p_home, p_draw, p_away])
-        pred = np.array([ph, pd, pa])
-        pred = np.clip(pred, 1e-8, None)
-        return np.sum(target * np.log(target / pred))
+    def _over_prob(mat, line):
+        """P(home + away > line) aus Score-Matrix."""
+        p = 0.0
+        for gh in range(max_goals + 1):
+            for ga in range(max_goals + 1):
+                if gh + ga > line:
+                    p += mat[gh, ga]
+        return p
 
-    # Auch Gesamttore optimieren
-    best_loss = 1e9
-    best_mat = None
-    for total in [2.2, 2.4, 2.6, 2.8, 3.0, 3.2]:
-        def obj2(log_ratio, tot=total):
+    if p_over is not None:
+        # 2D-Optimierung: log_ratio und log_total
+        def objective(params):
+            log_ratio, log_total = params
+            total = math.exp(log_total)
             ratio = math.exp(log_ratio)
-            lh = tot * ratio / (1 + ratio)
-            la = tot / (1 + ratio)
-            mat = np.zeros((max_goals + 1, max_goals + 1))
-            for gh in range(max_goals + 1):
-                for ga in range(max_goals + 1):
-                    mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
-                                  math.exp(-la) * la**ga / math.factorial(ga))
-            ph = np.sum(mat[np.tril_indices(max_goals+1, k=-1)])
-            pd = np.trace(mat)
-            pa = np.sum(mat[np.triu_indices(max_goals+1, k=1)])
-            target = np.array([p_home, p_draw, p_away])
-            pred = np.array([ph, pd, pa])
-            pred = np.clip(pred, 1e-8, None)
-            return np.sum(target * np.log(target / pred))
-
-        res = minimize_scalar(obj2, bounds=(-2, 2), method="bounded")
-        if res.fun < best_loss:
-            best_loss = res.fun
-            ratio = math.exp(res.x)
             lh = total * ratio / (1 + ratio)
             la = total / (1 + ratio)
-            mat = np.zeros((max_goals + 1, max_goals + 1))
-            for gh in range(max_goals + 1):
-                for ga in range(max_goals + 1):
-                    mat[gh, ga] = (math.exp(-lh) * lh**gh / math.factorial(gh) *
-                                  math.exp(-la) * la**ga / math.factorial(ga))
-            best_mat = mat
+            mat = _poisson_matrix(lh, la)
+
+            ph, pd, pa = _tendency_from_mat(mat)
+            target_hda = np.array([p_home, p_draw, p_away])
+            pred_hda = np.clip(np.array([ph, pd, pa]), 1e-8, None)
+            kl_hda = np.sum(target_hda * np.log(target_hda / pred_hda))
+
+            # Over/Under Fehler
+            pred_over = max(_over_prob(mat, ou_line), 1e-8)
+            pred_under = max(1 - pred_over, 1e-8)
+            kl_ou = (p_over * math.log(p_over / pred_over) +
+                     (1 - p_over) * math.log((1 - p_over) / pred_under))
+
+            return kl_hda + kl_ou
+
+        res = scipy_minimize(objective, [0.0, math.log(2.8)],
+                            method="Nelder-Mead", options={"xatol": 1e-6})
+        ratio = math.exp(res.x[0])
+        total = math.exp(res.x[1])
+        lh = total * ratio / (1 + ratio)
+        la = total / (1 + ratio)
+        best_mat = _poisson_matrix(lh, la)
+    else:
+        # Fallback: Grid-Search über Gesamttore (wie bisher)
+        from scipy.optimize import minimize_scalar
+        best_loss = 1e9
+        best_mat = None
+        for total in [2.2, 2.4, 2.6, 2.8, 3.0, 3.2]:
+            def obj(log_ratio, tot=total):
+                ratio = math.exp(log_ratio)
+                lh = tot * ratio / (1 + ratio)
+                la = tot / (1 + ratio)
+                mat = _poisson_matrix(lh, la)
+                ph, pd, pa = _tendency_from_mat(mat)
+                target = np.array([p_home, p_draw, p_away])
+                pred = np.clip(np.array([ph, pd, pa]), 1e-8, None)
+                return np.sum(target * np.log(target / pred))
+
+            res = minimize_scalar(obj, bounds=(-2, 2), method="bounded")
+            if res.fun < best_loss:
+                best_loss = res.fun
+                ratio = math.exp(res.x)
+                lh = total * ratio / (1 + ratio)
+                la = total / (1 + ratio)
+                best_mat = _poisson_matrix(lh, la)
 
     best_mat /= best_mat.sum()
     return best_mat
@@ -358,7 +386,7 @@ def fetch_live_odds() -> dict:
         params = {
             "apiKey": api_key,
             "regions": "eu",
-            "markets": "h2h",
+            "markets": "h2h,totals",
         }
         print("  Lade Live-Quoten (The Odds API)...", end=" ", flush=True)
         try:
@@ -384,9 +412,15 @@ def fetch_live_odds() -> dict:
         bookmakers = event.get("bookmakers", [])
         if not bookmakers:
             continue
-        bm = next((b for b in bookmakers if b["key"] == "pinnacle"), bookmakers[0])
-        markets = bm.get("markets", [])
-        h2h = next((m for m in markets if m["key"] == "h2h"), None)
+
+        # H2H-Quoten
+        h2h = None
+        for bm in [next((b for b in bookmakers if b["key"] == "pinnacle"), None)] + bookmakers:
+            if bm is None:
+                continue
+            h2h = next((m for m in bm.get("markets", []) if m["key"] == "h2h"), None)
+            if h2h:
+                break
         if not h2h:
             continue
 
@@ -404,12 +438,34 @@ def fetch_live_odds() -> dict:
         p_draw = (1/price_d) / inv_sum
         p_away = (1/price_a) / inv_sum
 
+        # Over/Under-Quoten suchen (aus allen Bookmakers)
+        p_over = None
+        ou_line = None
+        for bm in bookmakers:
+            totals = next((m for m in bm.get("markets", []) if m["key"] == "totals"), None)
+            if totals:
+                for o in totals["outcomes"]:
+                    if o["name"] == "Over":
+                        over_price = o["price"]
+                        point = o.get("point", 2.5)
+                        under_price = next(
+                            (x["price"] for x in totals["outcomes"] if x["name"] == "Under"), 0)
+                        if over_price > 0 and under_price > 0:
+                            inv = 1/over_price + 1/under_price
+                            p_over = (1/over_price) / inv
+                            ou_line = point
+                            break
+            if p_over is not None:
+                break
+
         # Team-Name normalisieren (Odds API verwendet englische Namen)
         home_norm = _normalize_team(home_team)
         away_norm = _normalize_team(away_team)
-        odds_dict[(home_norm, away_norm)] = {
-            "p_home": p_home, "p_draw": p_draw, "p_away": p_away,
-        }
+        entry = {"p_home": p_home, "p_draw": p_draw, "p_away": p_away}
+        if p_over is not None:
+            entry["p_over"] = p_over
+            entry["ou_line"] = ou_line
+        odds_dict[(home_norm, away_norm)] = entry
 
     return odds_dict
 
@@ -718,7 +774,8 @@ def cmd_predict(args):
 
         od = _find_odds(live_odds, home, away)
         if od:
-            odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
+            odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
+                                                od.get("p_over"), od.get("ou_line", 2.5))
             th, ta, ev = best_tip_combined(home, away, model, odds_mat)
             marker = "⚡"
         else:
@@ -806,7 +863,8 @@ def cmd_backtest(args):
             # Quoten verfügbar? → kombinierter Tipp
             od = _find_odds(odds_data, home, away) if use_odds else None
             if od:
-                odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
+                odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
+                                                od.get("p_over"), od.get("ou_line", 2.5))
                 th, ta, ev = best_tip_combined(home, away, model, odds_mat)
             else:
                 th, ta, ev = best_tip(home, away, model)
