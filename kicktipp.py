@@ -53,6 +53,8 @@ MAX_TIP_GOALS = 2      # Tipps maximal bis 2 Tore pro Team
 HALF_LIFE_DAYS = 300   # Zeitgewichtung: ~10 Monate Halbwertszeit
 MIN_MATCHES = 50       # Mindestanzahl Spiele für Modelltraining
 NUM_PREV_SEASONS = 3   # Anzahl Vorsaisons für Training
+ODDS_WEIGHT = 0.7      # Mischgewicht Quoten vs. Modell (0=nur Modell, 1=nur Quoten)
+LIVE_ODDS_CACHE_HOURS = 6
 
 FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281"
 ODDS_API_URL = "https://api.the-odds-api.com/v4"
@@ -373,7 +375,7 @@ def fetch_live_odds() -> dict:
     # Cache: max 6 Stunden alt, dann neu laden
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / "live_odds.json"
-    max_age = 6 * 3600  # 6 Stunden
+    max_age = LIVE_ODDS_CACHE_HOURS * 3600
 
     if cache_file.exists():
         age = datetime.now().timestamp() - cache_file.stat().st_mtime
@@ -668,7 +670,7 @@ def best_tip(home: str, away: str, model: dict) -> tuple[int, int, float]:
 
 
 def best_tip_combined(home: str, away: str, model: dict,
-                      odds_mat: np.ndarray, weight_odds: float = 0.7) -> tuple[int, int, float]:
+                      odds_mat: np.ndarray, weight_odds: float = ODDS_WEIGHT) -> tuple[int, int, float]:
     """
     Kombiniert Dixon-Coles und Quoten-basierte Score-Matrix.
     weight_odds=0: nur Modell, weight_odds=1: nur Quoten.
@@ -697,6 +699,29 @@ def _find_odds(odds_dict: dict, home: str, away: str) -> dict | None:
     return None
 
 
+def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None):
+    """Berechnet den optimalen Tipp — mit Quoten (falls vorhanden) oder nur Modell."""
+    od = _find_odds(odds_dict, home, away) if odds_dict else None
+    if od:
+        odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
+                                        od.get("p_over"), od.get("ou_line", 2.5))
+        return best_tip_combined(home, away, model, odds_mat)
+    return best_tip(home, away, model)
+
+
+def load_all_matches(season: int) -> list[dict]:
+    """Lädt Trainings-Matches: aktuelle + Vorsaisons, jeweils 1. und 2. Liga."""
+    all_matches = []
+    for s in range(season - NUM_PREV_SEASONS, season + 1):
+        for league in ["bl1", "bl2"]:
+            try:
+                raw = fetch_season(s, league)
+                all_matches += parse_matches(raw, league, s)
+            except Exception as e:
+                print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+    return all_matches
+
+
 def tendency_str(h: int, a: int) -> str:
     if h > a:
         return "Heimsieg"
@@ -714,15 +739,7 @@ def cmd_predict(args):
     mode_str = " [+Odds]" if use_odds else ""
     print(f"\n=== PROGNOSE Spieltag {args.matchday}, Saison {args.season}/{args.season+1}{mode_str} ===\n")
 
-    # Trainingsdaten: aktuelle + Vorsaisons, jeweils 1. und 2. Liga
-    all_matches = []
-    for s in range(args.season - NUM_PREV_SEASONS, args.season + 1):
-        for league in ["bl1", "bl2"]:
-            try:
-                raw = fetch_season(s, league)
-                all_matches += parse_matches(raw, league, s)
-            except Exception as e:
-                print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+    all_matches = load_all_matches(args.season)
 
     # Nur Spiele vor aktuellem Spieltag dieser Saison als Training
     training = [m for m in all_matches
@@ -730,12 +747,11 @@ def cmd_predict(args):
                         m["date"].year >= args.season)]
 
     if len(training) < MIN_MATCHES:
-        print(f"Fehler: Nur {len(training)} Trainingsmatches – zu wenig für zuverlässige Prognose.")
+        print(f"Fehler: Nur {len(training)} Trainingsmatches – zu wenig.")
         sys.exit(1)
 
     print(f"\nTrainiere Dixon-Coles Modell auf {len(training)} Spielen...")
-    ref_date = datetime.now(tz=timezone.utc)
-    model = fit_dixon_coles(training, ref_date)
+    model = fit_dixon_coles(training, datetime.now(tz=timezone.utc))
 
     # Live-Quoten holen (optional)
     live_odds = {}
@@ -756,23 +772,16 @@ def cmd_predict(args):
     for f in fixtures:
         home, away = f["home"], f["away"]
         if home not in model["attack"] or away not in model["attack"]:
-            print(f"  {home} vs {away}: Team unbekannt (zu wenig Trainingsdaten)")
+            print(f"  {home} vs {away}: Team unbekannt")
             continue
 
-        od = _find_odds(live_odds, home, away)
-        if od:
-            odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
-                                                od.get("p_over"), od.get("ou_line", 2.5))
-            th, ta, ev = best_tip_combined(home, away, model, odds_mat)
-            marker = "⚡"
-        else:
-            th, ta, ev = best_tip(home, away, model)
-            marker = " "
-
+        th, ta, ev = compute_tip(home, away, model, live_odds or None)
+        has_odds = _find_odds(live_odds, home, away) is not None
+        marker = "⚡" if has_odds else " "
         label = f"{home} – {away}"
-        tend = tendency_str(th, ta)
-        print(f"{marker} {label:<50} {th}:{ta}  {ev:>6.3f}  {tend}")
+        print(f"{marker} {label:<50} {th}:{ta}  {ev:>6.3f}  {tendency_str(th, ta)}")
 
+    print("  ⚡ = mit Live-Quoten" if live_odds else "")
     print()
 
 
@@ -789,15 +798,7 @@ def cmd_backtest(args):
     mode_str = " [+Odds]" if use_odds else ""
     print(f"\n=== BACKTESTING Saison {season}/{season+1}, Spieltage {from_md}–{to_md}{mode_str} ===\n")
 
-    # Gesamte Saison + Vorsaisons laden, jeweils 1. und 2. Liga
-    all_matches = []
-    for s in range(season - NUM_PREV_SEASONS, season + 1):
-        for league in ["bl1", "bl2"]:
-            try:
-                raw = fetch_season(s, league)
-                all_matches += parse_matches(raw, league, s)
-            except Exception as e:
-                print(f"  Warnung: {league} Saison {s} nicht geladen ({e})")
+    all_matches = load_all_matches(season)
 
     # Quoten laden (optional)
     odds_data = {}
@@ -806,7 +807,6 @@ def cmd_backtest(args):
             odds_rows = fetch_odds_csv(season)
             for row in odds_rows:
                 key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
-                # O/U nicht nutzen (CV zeigt keine Verbesserung)
                 odds_data[key] = {k: v for k, v in row.items()
                                   if k not in ("p_over", "ou_line")}
         except Exception as e:
@@ -849,14 +849,7 @@ def cmd_backtest(args):
             if home not in model["attack"] or away not in model["attack"]:
                 continue
 
-            # Quoten verfügbar? → kombinierter Tipp
-            od = _find_odds(odds_data, home, away) if use_odds else None
-            if od:
-                odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
-                                                od.get("p_over"), od.get("ou_line", 2.5))
-                th, ta, ev = best_tip_combined(home, away, model, odds_mat)
-            else:
-                th, ta, ev = best_tip(home, away, model)
+            th, ta, ev = compute_tip(home, away, model, odds_data or None)
 
             pts = kicktipp_points(th, ta, m["home_goals"], m["away_goals"])
             md_pts += pts
@@ -903,20 +896,25 @@ def cmd_backtest(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Kicktipp Bundesliga Predictor – Dixon-Coles mit Zeitgewichtung"
+        description="Kicktipp Bundesliga Predictor – Dixon-Coles + Pinnacle-Quoten",
+        epilog="Beispiele:\n"
+               "  %(prog)s predict --season 2025 --matchday 31\n"
+               "  %(prog)s backtest --season 2024 --use-odds\n"
+               "  %(prog)s backtest --season 2024 --from-matchday 10 --to-matchday 34 -v\n",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     # predict
     p_pred = sub.add_parser("predict", help="Tipps für einen Spieltag berechnen")
-    p_pred.add_argument("--season", type=int, required=True, help="Saison (z.B. 2024 für 2024/25)")
+    p_pred.add_argument("--season", type=int, required=True, help="Saison (z.B. 2025 für 2025/26)")
     p_pred.add_argument("--matchday", type=int, required=True, help="Spieltag (1–34)")
     p_pred.add_argument("--use-odds", action="store_true", dest="use_odds",
-                        help="Pinnacle-Quoten einbeziehen (football-data.co.uk)")
+                        help="Live-Quoten via The Odds API (automatisch wenn ODDS_API_KEY gesetzt)")
 
     # backtest
     p_back = sub.add_parser("backtest", help="Backtesting über eine Saison")
-    p_back.add_argument("--season", type=int, required=True, help="Saison (z.B. 2023 für 2023/24)")
+    p_back.add_argument("--season", type=int, required=True, help="Saison (z.B. 2024 für 2024/25)")
     p_back.add_argument("--from-matchday", type=int, default=1, dest="from_matchday",
                         help="Ab Spieltag (default: 1)")
     p_back.add_argument("--to-matchday", type=int, default=34, dest="to_matchday",
@@ -924,7 +922,7 @@ def main():
     p_back.add_argument("--verbose", "-v", action="store_true",
                         help="Einzelergebnisse ausgeben")
     p_back.add_argument("--use-odds", action="store_true", dest="use_odds",
-                        help="Pinnacle-Quoten einbeziehen (football-data.co.uk)")
+                        help="Historische Pinnacle-Quoten einbeziehen (football-data.co.uk)")
 
     args = parser.parse_args()
 
