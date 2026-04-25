@@ -2,18 +2,25 @@
 """
 Kicktipp Bundesliga Predictor
 ==============================
-Dixon-Coles Modell mit Zeitgewichtung + Backtesting gegen Kicktipp-Punkteschema.
+Dixon-Coles Modell (30%) + Pinnacle-Wettquoten (70%) zur Optimierung
+von Tipps gegen das Kicktipp-Punkteschema (1-3 Punkte).
 
-Datenquelle: OpenLigaDB (kostenlos, kein API-Key nötig)
+Datenquellen:
+  - OpenLigaDB: Ergebnisse 1. + 2. Bundesliga (kostenlos)
+  - football-data.co.uk: Historische Pinnacle-Quoten (kostenlos)
+  - The Odds API: Live-Quoten vor Spieltag (kostenlos, 500 Credits/Monat)
 
 Verwendung:
-  python kicktipp.py predict --season 2024 --matchday 30
-  python kicktipp.py backtest --season 2023
-  python kicktipp.py backtest --season 2023 --from-matchday 10 --to-matchday 34
+  python kicktipp.py predict --season 2025 --matchday 31
+  python kicktipp.py backtest --season 2024 --use-odds
+  python kicktipp.py backtest --season 2024 --from-matchday 10 --to-matchday 34
+
+Setup:
+  pip install -r requirements.txt
+  echo "ODDS_API_KEY=dein_key" > .env   # https://the-odds-api.com (kostenlos)
 """
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -46,8 +53,6 @@ MAX_TIP_GOALS = 2      # Tipps maximal bis 2 Tore pro Team
 HALF_LIFE_DAYS = 300   # Zeitgewichtung: ~10 Monate Halbwertszeit
 MIN_MATCHES = 50       # Mindestanzahl Spiele für Modelltraining
 NUM_PREV_SEASONS = 3   # Anzahl Vorsaisons für Training
-REG_LAMBDA = 0.0       # L2-Regularisierungsstärke (0 = keine)
-NEGBIN_R = None        # Neg. Binomial Dispersionsparameter (None = Poisson)
 
 FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281"
 ODDS_API_URL = "https://api.the-odds-api.com/v4"
@@ -542,7 +547,7 @@ def _precompute_match_arrays(matches: list[dict], team_idx: dict):
 
 
 def neg_log_likelihood(params: np.ndarray, match_arrays: tuple, n: int,
-                       weights: np.ndarray, reg_lambda: float = 0.0) -> float:
+                       weights: np.ndarray) -> float:
     attack = params[:n]
     defense = params[n:2*n]
     home_adv = params[2*n]
@@ -575,13 +580,7 @@ def neg_log_likelihood(params: np.ndarray, match_arrays: tuple, n: int,
 
     ll += np.log(tau)
 
-    nll = -np.dot(weights, ll)
-
-    # L2-Regularisierung auf Attack- und Defense-Parameter
-    if reg_lambda > 0:
-        nll += reg_lambda * (np.sum(attack**2) + np.sum(defense**2))
-
-    return nll
+    return -np.dot(weights, ll)
 
 
 def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
@@ -599,7 +598,7 @@ def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
     # Identifikation: attack[0] = 0 fixieren
     def objective(p):
         p_full = np.concatenate([[0.0], p[:(n-1)], p[(n-1):]])
-        return neg_log_likelihood(p_full, match_arrays, n, weights, REG_LAMBDA)
+        return neg_log_likelihood(p_full, match_arrays, n, weights)
 
     x0_free = np.concatenate([x0[1:n], x0[n:]])
     result = minimize(objective, x0_free, method="L-BFGS-B",
@@ -624,7 +623,6 @@ def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
 
 def score_matrix(home: str, away: str, model: dict, max_goals: int = MAX_GOALS) -> np.ndarray:
     """Berechnet P(home_goals=i, away_goals=j) für alle i,j."""
-    from scipy.special import gammaln
     lh = math.exp(model["attack"][home] - model["defense"][away] + model["home_adv"])
     la = math.exp(model["attack"][away] - model["defense"][home])
     rho = model["rho"]
@@ -632,22 +630,12 @@ def score_matrix(home: str, away: str, model: dict, max_goals: int = MAX_GOALS) 
     mat = np.zeros((max_goals + 1, max_goals + 1))
     for gh in range(max_goals + 1):
         for ga in range(max_goals + 1):
-            if NEGBIN_R is not None:
-                r = NEGBIN_R
-                ph = r / (r + lh)
-                pa = r / (r + la)
-                p_h = math.exp(gammaln(gh+r) - gammaln(gh+1) - gammaln(r)
-                              + r*math.log(ph) + gh*math.log(1-ph))
-                p_a = math.exp(gammaln(ga+r) - gammaln(ga+1) - gammaln(r)
-                              + r*math.log(pa) + ga*math.log(1-pa))
-                p = p_h * p_a
-            else:
-                p = (math.exp(-lh) * lh**gh / math.factorial(gh) *
-                     math.exp(-la) * la**ga / math.factorial(ga))
+            p = (math.exp(-lh) * lh**gh / math.factorial(gh) *
+                 math.exp(-la) * la**ga / math.factorial(ga))
             p *= dc_rho_correction(gh, ga, lh, la, rho)
             mat[gh, ga] = max(p, 0)
 
-    mat /= mat.sum()  # Renormalisieren
+    mat /= mat.sum()
     return mat
 
 
