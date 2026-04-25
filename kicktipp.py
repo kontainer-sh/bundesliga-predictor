@@ -461,11 +461,10 @@ def fetch_live_odds() -> dict:
         # Team-Name normalisieren (Odds API verwendet englische Namen)
         home_norm = _normalize_team(home_team)
         away_norm = _normalize_team(away_team)
-        entry = {"p_home": p_home, "p_draw": p_draw, "p_away": p_away}
-        if p_over is not None:
-            entry["p_over"] = p_over
-            entry["ou_line"] = ou_line
-        odds_dict[(home_norm, away_norm)] = entry
+        # O/U wird abgerufen aber nicht genutzt (CV zeigt keine Verbesserung)
+        odds_dict[(home_norm, away_norm)] = {
+            "p_home": p_home, "p_draw": p_draw, "p_away": p_away,
+        }
 
     return odds_dict
 
@@ -819,7 +818,9 @@ def cmd_backtest(args):
             odds_rows = fetch_odds_csv(season)
             for row in odds_rows:
                 key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
-                odds_data[key] = row
+                # O/U nicht nutzen (CV zeigt keine Verbesserung)
+                odds_data[key] = {k: v for k, v in row.items()
+                                  if k not in ("p_over", "ou_line")}
         except Exception as e:
             print(f"  Warnung: Quoten nicht geladen ({e})")
 
