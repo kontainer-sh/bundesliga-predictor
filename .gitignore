@@ -2,6 +2,3 @@
 .venv/
 .env
 __pycache__/
-tune_*.py
-theoretical_limit.py
-realistic_ceiling.py
