@@ -64,11 +64,27 @@ ODDS_API_SPORT = "soccer_germany_bundesliga"
 # ---------------------------------------------------------------------------
 # Kicktipp Punkteschema
 # ---------------------------------------------------------------------------
+# Anpassen an die eigene Kicktipp-Runde:
+#   Sieg:           Tendenz richtig → POINTS_TENDENCY
+#                   Tordifferenz richtig → POINTS_GOAL_DIFF
+#   Unentschieden:  Tendenz richtig → POINTS_DRAW_TENDENCY
+#   Exakt:          → POINTS_EXACT
+#
+# Gängige Kicktipp-Schemata:
+#   1-2-3:  Tendenz=1, Diff=2, Remis=2, Exakt=3  (unser Default)
+#   2-3-4:  Tendenz=2, Diff=3, Remis=3, Exakt=4  (Kicktipp-Standard)
+#   0-2-3:  Tendenz=0, Diff=2, Remis=2, Exakt=3
+
+POINTS_TENDENCY = 1       # Sieg: nur Tendenz richtig
+POINTS_GOAL_DIFF = 2      # Sieg: Tordifferenz richtig
+POINTS_DRAW_TENDENCY = 2  # Unentschieden: Tendenz richtig (aber nicht exakt)
+POINTS_EXACT = 3          # Exaktes Ergebnis
+
 
 def kicktipp_points(tip_h: int, tip_a: int, real_h: int, real_a: int) -> int:
-    """Berechnet Kicktipp-Punkte (1-3 Schema)."""
+    """Berechnet Kicktipp-Punkte nach konfiguriertem Schema."""
     if tip_h == real_h and tip_a == real_a:
-        return 3  # Exaktes Ergebnis
+        return POINTS_EXACT
     tip_diff = tip_h - tip_a
     real_diff = real_h - real_a
     tip_tendency = np.sign(tip_diff)
@@ -77,10 +93,10 @@ def kicktipp_points(tip_h: int, tip_a: int, real_h: int, real_a: int) -> int:
         return 0
     # Tendenz stimmt
     if real_h == real_a:
-        return 2  # Unentschieden: Tendenz richtig
+        return POINTS_DRAW_TENDENCY
     if tip_diff == real_diff:
-        return 2  # Sieg: Tordifferenz richtig
-    return 1  # Sieg: nur Tendenz richtig
+        return POINTS_GOAL_DIFF
+    return POINTS_TENDENCY
 
 
 # ---------------------------------------------------------------------------

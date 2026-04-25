@@ -108,12 +108,24 @@ In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
 
 ## Punkteschema anpassen
 
-Das Punkteschema ist in der Funktion `kicktipp_points()` definiert. Aktuell:
+Die vier Konstanten am Anfang von `kicktipp.py` anpassen:
 
-- **Sieg**: Tendenz 1, Tordifferenz 2, Exakt 3
-- **Unentschieden**: Tendenz 2, Exakt 3
+```python
+POINTS_TENDENCY = 1       # Sieg: nur Tendenz richtig
+POINTS_GOAL_DIFF = 2      # Sieg: Tordifferenz richtig
+POINTS_DRAW_TENDENCY = 2  # Unentschieden: Tendenz richtig
+POINTS_EXACT = 3          # Exaktes Ergebnis
+```
 
-Für andere Kicktipp-Regeln einfach die Funktion anpassen und Hyperparameter neu tunen.
+Gängige Kicktipp-Schemata:
+
+| Schema | Tendenz | Differenz | Remis | Exakt |
+|---|---|---|---|---|
+| 1-2-3 (unser Default) | 1 | 2 | 2 | 3 |
+| 2-3-4 (Kicktipp-Standard) | 2 | 3 | 3 | 4 |
+| 0-2-3 | 0 | 2 | 2 | 3 |
+
+Nach Änderung des Schemas sollten die Hyperparameter (vor allem `MAX_TIP_GOALS` und `ODDS_WEIGHT`) per Backtest überprüft werden.
 
 ## Lizenz
 
