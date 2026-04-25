@@ -783,6 +783,18 @@ def cmd_predict(args):
         print(f"Fehler beim Laden der Begegnungen: {e}")
         sys.exit(1)
 
+    # Warnung bei ungematchten Quoten
+    if live_odds:
+        matched = sum(1 for f in fixtures
+                      if _find_odds(live_odds, f["home"], f["away"]) is not None)
+        if matched == 0 and fixtures:
+            print("  ⚠ Keine Quoten konnten zugeordnet werden!")
+            print("    Prüfe _TEAM_NAME_MAP in kicktipp.py (Aufsteiger?)")
+            print(f"    Fixtures: {[f['home'] for f in fixtures[:3]]}...")
+            odds_teams = list(live_odds.keys())[:3]
+            print(f"    Odds-API: {[h for h, a in odds_teams]}...")
+            print()
+
     print(f"\n{'Begegnung':<52} {'Tipp':>8}  {'E[Pkt]':>7}  Tendenz")
     print("-" * 85)
     for f in fixtures:
