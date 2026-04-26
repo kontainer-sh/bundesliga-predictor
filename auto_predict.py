@@ -146,12 +146,35 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
     now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
     match_date_str = match_date.strftime("%d.%m.%Y %H:%M")
 
+    WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
     rows = ""
     total_ev = 0.0
+    last_date = None
     for f in fixtures:
         home, away = f["home"], f["away"]
+        kickoff = f.get("kickoff")
+
+        # Datum/Uhrzeit formatieren (MESZ = UTC+2)
+        if kickoff:
+            from datetime import timedelta
+            kickoff_local = kickoff + timedelta(hours=2)
+            wt = WOCHENTAGE[kickoff_local.weekday()]
+            ko_str = f'{wt} {kickoff_local.strftime("%d.%m. %H:%M")}'
+            date_key = kickoff_local.date()
+        else:
+            ko_str = ""
+            date_key = None
+
+        # Trennzeile bei neuem Tag
+        if date_key and date_key != last_date and last_date is not None:
+            rows += f'<tr class="day-sep"><td colspan="5"></td></tr>\n'
+        last_date = date_key
+
         if home not in model["attack"] or away not in model["attack"]:
-            rows += f'<tr><td class="match">{home} – {away}</td><td class="tip">?</td><td class="ev">—</td><td>—</td></tr>\n'
+            rows += (f'<tr><td class="kickoff">{ko_str}</td>'
+                     f'<td class="match">{home} – {away}</td>'
+                     f'<td class="tip">?</td><td class="ev">—</td><td>—</td></tr>\n')
             continue
 
         th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
@@ -160,12 +183,13 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
         badge = '<span class="odds-badge">&#9889; Odds</span>' if has_odds else ""
         tend = kt.tendency_str(th, ta)
         tend_class = {"Heimsieg": "tend-home", "Auswärtssieg": "tend-away", "Unentschieden": "tend-draw"}[tend]
-        rows += (f'<tr><td class="match">{home} – {away}{badge}</td>'
+        rows += (f'<tr><td class="kickoff">{ko_str}</td>'
+                 f'<td class="match">{home} – {away}{badge}</td>'
                  f'<td class="tip">{th}:{ta}</td>'
                  f'<td class="ev">{ev:.3f}</td>'
                  f'<td class="tend {tend_class}">{tend}</td></tr>\n')
     rows += (f'<tr style="border-top:2px solid #e5e5e5">'
-             f'<td class="match"><strong>Summe</strong></td>'
+             f'<td></td><td class="match"><strong>Summe</strong></td>'
              f'<td></td><td class="ev"><strong>{total_ev:.2f}</strong></td>'
              f'<td></td></tr>\n')
 
@@ -215,6 +239,8 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
   .tend-home {{ color: #2563eb; }}
   .tend-draw {{ color: #7c3aed; }}
   .tend-away {{ color: #dc2626; }}
+  .kickoff {{ color: #888; font-size: 0.82em; white-space: nowrap; }}
+  .day-sep td {{ padding: 2px 0; border-bottom: 2px solid #e0e0e0; }}
   .odds-badge {{ display: inline-block; background: #fef3c7; color: #92400e;
                  font-size: 0.7em; padding: 2px 6px; border-radius: 3px;
                  margin-left: 6px; vertical-align: middle; }}
@@ -246,12 +272,12 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
 <div class="card">
 <table>
 <thead>
-<tr><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
+<tr><th>Anpfiff</th><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
 </thead>
 <tbody>
 {rows}</tbody>
 </table>
-<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell</p>
+<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Zeiten in MESZ</p>
 </div>
 
 <details class="method">

@@ -155,18 +155,25 @@ def parse_matches(raw: list[dict], league: str = "bl1", season: int = 0) -> list
 
 
 def fetch_matchday_fixtures(season: int, matchday: int) -> list[dict]:
-    """Lädt Begegnungen eines einzelnen Spieltags (noch nicht gespielt)."""
+    """Lädt Begegnungen eines einzelnen Spieltags, sortiert nach Anpfiffzeit."""
     url = f"{OPENLIGADB}/getmatchdata/bl1/{season}/{matchday}"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
     raw = resp.json()
     fixtures = []
     for m in raw:
+        date_str = m.get("matchDateTimeUTC", "")
+        try:
+            dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        except Exception:
+            dt = None
         fixtures.append({
             "matchday": matchday,
             "home": m["team1"]["teamName"],
             "away": m["team2"]["teamName"],
+            "kickoff": dt,
         })
+    fixtures.sort(key=lambda f: f["kickoff"] or datetime.max.replace(tzinfo=timezone.utc))
     return fixtures
 
 
