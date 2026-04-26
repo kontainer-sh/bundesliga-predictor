@@ -65,9 +65,57 @@ python kicktipp.py backtest --season 2024 --from-matchday 10 --to-matchday 30
 
 ### Modell
 
-1. **Dixon-Coles** (30% Gewicht): Schätzt Angriffs-/Abwehrstärke jedes Teams aus historischen Ergebnissen (3 Vorsaisons + 2. Liga, Poisson-Verteilung mit Zeitgewichtung).
-2. **Pinnacle-Quoten** (70% Gewicht): Markt-implizierte Wahrscheinlichkeiten (H/D/A), umgewandelt in Score-Matrix via Poisson-Fit.
-3. **Tipp-Optimierung**: Wählt den Tipp mit dem höchsten erwarteten Punkteertrag unter dem konfigurierten Kicktipp-Punkteschema. Analytisch exakt berechnet (kein Monte Carlo nötig).
+#### 1. Dixon-Coles (30% Gewicht)
+
+Das [Dixon-Coles-Modell](https://doi.org/10.1111/1467-9876.00065) (1997) ist die Standardmethode zur Vorhersage von Fußballergebnissen. Jedes Team hat zwei Parameter:
+
+- **Angriffsstärke** α_i — wie viele Tore Team i schießt
+- **Abwehrstärke** β_i — wie viele Tore Team i zulässt
+
+Die erwarteten Tore in einem Spiel Home vs. Away sind:
+
+```
+λ_home = exp(α_home - β_away + γ)    # γ = Heimvorteil
+λ_away = exp(α_away - β_home)
+```
+
+Tore folgen einer **Poisson-Verteilung**: P(k Tore) = λ^k · e^(-λ) / k!
+
+Die Wahrscheinlichkeit für ein Ergebnis h:a ist dann P(h) · P(a), korrigiert um einen **Abhängigkeitsfaktor ρ** für niedrige Ergebnisse (0:0, 1:0, 0:1, 1:1), weil diese empirisch häufiger/seltener auftreten als unabhängiges Poisson vorhersagt.
+
+Die Parameter werden per **Maximum-Likelihood-Schätzung** auf historischen Ergebnissen gefittet, mit exponentiellem **Zeitgewicht** (Halbwertszeit 300 Tage), sodass neuere Spiele stärker zählen.
+
+#### 2. Pinnacle-Quoten (70% Gewicht)
+
+Wettquoten des Buchmachers Pinnacle (bekannt für die schärfsten Linien am Markt) werden in eine Score-Matrix umgerechnet:
+
+1. **Overround entfernen**: Die impliziten Wahrscheinlichkeiten P(H), P(D), P(A) werden aus den Dezimalquoten extrahiert und auf 100% normalisiert.
+2. **Poisson-Fit**: λ_home und λ_away werden so gewählt, dass die resultierende Poisson-Verteilung die H/D/A-Wahrscheinlichkeiten möglichst gut reproduziert (Minimierung der KL-Divergenz).
+3. **Score-Matrix**: P(h:a) für alle Ergebnisse von 0:0 bis 8:8.
+
+Die Score-Matrizen aus Dixon-Coles und Quoten werden **gewichtet gemischt** (70/30), um die Stärken beider Ansätze zu kombinieren.
+
+#### 3. Tipp-Optimierung
+
+Für jeden Kandidaten-Tipp (0:0 bis 2:2) wird der **erwartete Kicktipp-Punkteertrag** berechnet:
+
+```
+E[Punkte | Tipp t] = Σ P(h:a) · Punkte(t, h:a)
+```
+
+Der Tipp mit dem höchsten Erwartungswert wird gewählt. Dies wird analytisch exakt über die gesamte Score-Matrix berechnet (`numpy.einsum`), nicht per Monte-Carlo-Simulation — mathematisch äquivalent, aber schneller und deterministisch.
+
+#### Warum Poisson?
+
+Die Poisson-Verteilung passt erstaunlich gut auf Fußballtore (empirisch überprüft auf 4.590 Bundesliga-Spielen 2010–2025):
+
+| Kennzahl | Poisson-Annahme | Bundesliga empirisch |
+|---|---|---|
+| Var/Mean (Heimtore) | 1.000 | 1.154 |
+| Var/Mean (Auswärtstore) | 1.000 | 1.120 |
+| Häufigstes Ergebnis | 1:1 (10.9%) | 1:1 (11.5%) |
+
+Die leichte Überdispersion (~12–15%) wurde mit Negativer Binomialverteilung getestet, bringt aber keine messbare Verbesserung bei unserem Punkteschema.
 
 ### Optimierte Hyperparameter (Cross-Validation über 3 Saisons)
 
