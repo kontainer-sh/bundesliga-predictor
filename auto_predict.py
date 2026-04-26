@@ -249,6 +249,21 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
 </div>
 
 <details class="method">
+<summary>Punkteschema</summary>
+<div class="method-content">
+<p>Optimiert auf folgendes Kicktipp-Punkteschema:</p>
+<table style="max-width:400px; margin: 8px 0 12px 0;">
+<tr><td><strong>Exaktes Ergebnis</strong></td><td style="text-align:right"><strong>{kt.POINTS_EXACT} Punkte</strong></td></tr>
+<tr><td>Richtige Tordifferenz (Sieg)</td><td style="text-align:right">{kt.POINTS_GOAL_DIFF} Punkte</td></tr>
+<tr><td>Richtige Tendenz (Unentschieden)</td><td style="text-align:right">{kt.POINTS_DRAW_TENDENCY} Punkte</td></tr>
+<tr><td>Richtige Tendenz (Sieg)</td><td style="text-align:right">{kt.POINTS_TENDENCY} Punkt</td></tr>
+<tr><td>Falsch</td><td style="text-align:right">0 Punkte</td></tr>
+</table>
+<p>E[Pkt] = erwarteter Punkteertrag des Tipps unter diesem Schema.</p>
+</div>
+</details>
+
+<details class="method">
 <summary>Wie werden die Tipps berechnet?</summary>
 <div class="method-content">
 <p>Die Tipps kombinieren zwei Ansätze: Ein <strong>Dixon-Coles-Modell</strong> (30%)
@@ -257,10 +272,9 @@ der letzten 3+ Saisons (1. und 2. Bundesliga). <strong>Pinnacle-Wettquoten</stro
 liefern den Markt-Konsens aus tausenden informierter Wetter.</p>
 <p>Beide Quellen werden zu einer Wahrscheinlichkeitsmatrix für alle möglichen
 Ergebnisse kombiniert. Der Tipp mit dem höchsten <strong>erwarteten Punkteertrag</strong>
-unter dem Kicktipp-Punkteschema wird gewählt — analytisch exakt berechnet.</p>
-<p>Im Backtest erreicht das Modell <strong>95% des theoretischen Maximums</strong>
-(231 von ~232 möglichen Punkten bei perfekter Kalibrierung). In einer
-20er-Liga: durchschnittlich Platz 4, ~28% Titelchance.</p>
+wird gewählt — analytisch exakt berechnet.</p>
+<p>Im Backtest erreicht das Modell <strong>95% des theoretischen Maximums</strong>.
+In einer 20er-Liga: durchschnittlich Platz 4, ~28% Titelchance.</p>
 </div>
 </details>
 
