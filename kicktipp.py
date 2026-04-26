@@ -814,6 +814,184 @@ def cmd_predict(args):
 
 
 # ---------------------------------------------------------------------------
+# Kalibrierungs-Analyse
+# ---------------------------------------------------------------------------
+
+_CALIBRATION_SCORES = [
+    (0, 0), (1, 0), (0, 1), (1, 1),
+    (2, 0), (0, 2), (2, 1), (1, 2), (2, 2),
+]
+
+_CALIBRATION_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 100)]
+
+
+def _tendency_probs(mat: np.ndarray) -> tuple[float, float, float]:
+    """Marginalisiert die Score-Matrix zu (P_home, P_draw, P_away)."""
+    n = mat.shape[0]
+    p_home = sum(mat[h, a] for h in range(n) for a in range(n) if h > a)
+    p_draw = sum(mat[h, h] for h in range(n))
+    p_away = sum(mat[h, a] for h in range(n) for a in range(n) if h < a)
+    return p_home, p_draw, p_away
+
+
+def cmd_calibration(args):
+    season = args.season
+    from_md = args.from_matchday
+    to_md = args.to_matchday
+    use_odds = getattr(args, "use_odds", False)
+
+    print(f"\n=== KALIBRIERUNGS-ANALYSE Saison {season}/{season+1}, "
+          f"Spieltage {from_md}–{to_md}"
+          f"{' [+Odds]' if use_odds else ''} ===\n")
+
+    all_matches = load_all_matches(season)
+    season_matches = [m for m in all_matches if
+                      m["league"] == "bl1" and m["season"] == season]
+
+    odds_data = {}
+    if use_odds:
+        try:
+            odds_rows = fetch_odds_csv(season)
+            for row in odds_rows:
+                key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
+                odds_data[key] = {k: v for k, v in row.items()}
+        except Exception as e:
+            print(f"  Warnung: Quoten nicht geladen ({e})")
+
+    # Pro Spiel: Modell-Score-Matrix berechnen
+    predictions = []
+    skipped = 0
+
+    for md in range(from_md, to_md + 1):
+        cutoff = [m for m in season_matches if m["matchday"] < md]
+        prev = [m for m in all_matches if m not in season_matches]
+        training = prev + cutoff
+        if len(training) < MIN_MATCHES:
+            continue
+
+        md_matches = [m for m in season_matches if m["matchday"] == md]
+        if not md_matches:
+            continue
+
+        ref_date = min(m["date"] for m in md_matches)
+        model = fit_dixon_coles(training, ref_date)
+
+        for m in md_matches:
+            home, away = m["home"], m["away"]
+            if home not in model["attack"] or away not in model["attack"]:
+                skipped += 1
+                continue
+
+            od = _find_odds(odds_data, _normalize_team(home),
+                            _normalize_team(away)) if odds_data else None
+            if od:
+                dc_mat = score_matrix(home, away, model)
+                odds_mat = odds_to_score_matrix(
+                    od["p_home"], od["p_draw"], od["p_away"],
+                    od.get("p_over"), od.get("ou_line", 2.5)
+                )
+                mat = (1 - ODDS_WEIGHT) * dc_mat + ODDS_WEIGHT * odds_mat
+                mat /= mat.sum()
+            else:
+                mat = score_matrix(home, away, model)
+
+            predictions.append((mat, m["home_goals"], m["away_goals"]))
+
+    n = len(predictions)
+    if n == 0:
+        print("  Keine auswertbaren Spiele gefunden.")
+        return
+    print(f"  Spiele: {n} (übersprungen: {skipped})\n")
+
+    # ---- 1X2-Kalibrierung ----
+    print(f"  [1X2-Tendenz] Reliability:\n")
+    print(f"  {'Bin':>20s}   {'n':>5s}   {'vorhergesagt':>12s}   {'tatsächlich':>11s}   {'Diff':>7s}")
+    print(f"  {'-'*65}")
+
+    for outcome_idx, outcome_name in [(0, "Heimsieg"), (1, "Remis"), (2, "Auswärtssieg")]:
+        print(f"\n  {outcome_name}:")
+        for low, high in _CALIBRATION_BINS:
+            in_bin = []
+            for mat, rh, ra in predictions:
+                p_h, p_d, p_a = _tendency_probs(mat)
+                p_pred = [p_h, p_d, p_a][outcome_idx]
+                if low / 100 <= p_pred < high / 100:
+                    actual = 0
+                    if outcome_idx == 0 and rh > ra:
+                        actual = 1
+                    elif outcome_idx == 1 and rh == ra:
+                        actual = 1
+                    elif outcome_idx == 2 and rh < ra:
+                        actual = 1
+                    in_bin.append((p_pred, actual))
+
+            if not in_bin:
+                continue
+            avg_pred = np.mean([x[0] for x in in_bin])
+            avg_actual = np.mean([x[1] for x in in_bin])
+            diff = avg_actual - avg_pred
+            sign = "+" if diff > 0 else ""
+            marker = "▲" if diff > 0.02 else ("▼" if diff < -0.02 else "·")
+            print(f"  {f'{low:2d}-{high:3d}%':>20s}   {len(in_bin):>5d}   "
+                  f"{avg_pred*100:>10.1f}%   {avg_actual*100:>9.1f}%   "
+                  f"{sign}{diff*100:>5.1f}pp {marker}")
+
+    # ---- Score-Kalibrierung ----
+    print(f"\n\n  [Einzelergebnisse] Reliability:\n")
+    print(f"  {'Score':>6s}   {'Modell-Ø':>10s}   {'Tatsächlich':>12s}   "
+          f"{'Diff':>7s}   {'Bewertung':>15s}")
+    print(f"  {'-'*60}")
+
+    for (h, a) in _CALIBRATION_SCORES:
+        avg_pred = np.mean([mat[h, a] for mat, _, _ in predictions])
+        actual = np.mean([1 if (rh == h and ra == a) else 0
+                          for _, rh, ra in predictions])
+        diff = actual - avg_pred
+        sign = "+" if diff > 0 else ""
+        if abs(diff) < 0.005:
+            verdict = "gut"
+        elif abs(diff) < 0.015:
+            verdict = "okay"
+        else:
+            verdict = "Abweichung"
+        print(f"  {h}:{a:<4d}   {avg_pred*100:>8.2f}%   {actual*100:>10.2f}%   "
+              f"{sign}{diff*100:>5.2f}pp   {verdict:>15s}")
+
+    # ---- Globale Metriken ----
+    print(f"\n\n  [Globale Metriken]\n")
+
+    brier_sum = 0.0
+    log_loss_sum = 0.0
+    for mat, rh, ra in predictions:
+        p_h, p_d, p_a = _tendency_probs(mat)
+        if rh > ra:
+            actual = (1, 0, 0)
+        elif rh == ra:
+            actual = (0, 1, 0)
+        else:
+            actual = (0, 0, 1)
+        brier_sum += sum((p - a) ** 2 for p, a in zip([p_h, p_d, p_a], actual))
+        actual_p = [p_h, p_d, p_a][actual.index(1)]
+        log_loss_sum += -math.log(max(actual_p, 1e-12))
+
+    brier = brier_sum / n
+    log_loss = log_loss_sum / n
+    brier_uninformed = 2 / 3
+    log_loss_uninformed = math.log(3)
+
+    print(f"    Brier-Score:        {brier:.4f}    "
+          f"(uninformiert: {brier_uninformed:.4f}, niedriger = besser)")
+    print(f"    Log-Loss:           {log_loss:.4f}    "
+          f"(uninformiert: {log_loss_uninformed:.4f})")
+
+    skill_brier = 1 - brier / brier_uninformed
+    skill_ll = 1 - log_loss / log_loss_uninformed
+    print(f"    Brier Skill Score:  {skill_brier:.3f}    "
+          f"(0 = uninformiert, 1 = perfekt)")
+    print(f"    Log-Loss Skill:     {skill_ll:.3f}\n")
+
+
+# ---------------------------------------------------------------------------
 # CLI: backtest
 # ---------------------------------------------------------------------------
 
@@ -1154,6 +1332,15 @@ def main():
     p_ceil.add_argument("--compare-model", action="store_true", dest="compare_model",
                         help="Zusätzlich tatsächliche Modell-Performance auf demselben Sample")
 
+    # calibration
+    p_cal = sub.add_parser("calibration",
+                           help="Reliability-Analyse: Modell-Wahrscheinlichkeiten vs. Realität")
+    p_cal.add_argument("--season", type=int, required=True)
+    p_cal.add_argument("--from-matchday", type=int, default=1, dest="from_matchday")
+    p_cal.add_argument("--to-matchday", type=int, default=34, dest="to_matchday")
+    p_cal.add_argument("--use-odds", action="store_true", dest="use_odds",
+                       help="Modell + Quoten-Mix testen (sonst nur Dixon-Coles)")
+
     args = parser.parse_args()
 
     if args.cmd == "predict":
@@ -1162,6 +1349,8 @@ def main():
         cmd_backtest(args)
     elif args.cmd == "ceiling":
         cmd_ceiling(args)
+    elif args.cmd == "calibration":
+        cmd_calibration(args)
 
 
 if __name__ == "__main__":
