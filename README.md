@@ -138,6 +138,7 @@ Die leichte Überdispersion (~12–15%) wurde mit Negativer Binomialverteilung g
 | Over/Under-Quoten | -11 Pkt — verschlechtert Tendenz-Trefferquote |
 | Teamspezifischer Heimvorteil | -13 Pkt — Overfitting |
 | Remis-Boost | -13 Pkt — Modell optimiert schon korrekt |
+| Score-Matrix Recalibration | -33 Pkt — Bias-Muster instabil über Saisons |
 
 ## Theoretische Grenzen
 

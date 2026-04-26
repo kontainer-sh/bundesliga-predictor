@@ -715,14 +715,114 @@ def _find_odds(odds_dict: dict, home: str, away: str) -> dict | None:
     return None
 
 
-def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None):
-    """Berechnet den optimalen Tipp — mit Quoten (falls vorhanden) oder nur Modell."""
+def recalibrate_score_matrix(mat: np.ndarray, correction_table: np.ndarray) -> np.ndarray:
+    """Korrigiert eine Score-Matrix elementweise und renormiert."""
+    n = min(mat.shape[0], correction_table.shape[0])
+    corrected = mat.copy()
+    corrected[:n, :n] *= correction_table[:n, :n]
+    corrected = np.clip(corrected, 0, None)
+    corrected /= corrected.sum()
+    return corrected
+
+
+def fit_recalibration(train_seasons: list[int], min_obs: int = 20) -> np.ndarray:
+    """Lernt eine Korrekturtabelle aus vergangenen Saisons (kein Data Leakage).
+
+    Für jedes Score (h,a): correction = actual_freq / predicted_freq.
+    Scores mit < min_obs Beobachtungen werden auf 1.0 (keine Korrektur) gesetzt.
+    """
+    n = MAX_GOALS + 1
+    predicted_sum = np.zeros((n, n))
+    actual_count = np.zeros((n, n))
+    total_matches = 0
+
+    for season in train_seasons:
+        all_matches = load_all_matches(season)
+        season_matches = [m for m in all_matches if
+                          m["league"] == "bl1" and m["season"] == season]
+
+        odds_data = {}
+        try:
+            odds_rows = fetch_odds_csv(season)
+            for row in odds_rows:
+                key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
+                odds_data[key] = {k: v for k, v in row.items()}
+        except Exception:
+            pass
+
+        for md in range(1, 35):
+            cutoff = [m for m in season_matches if m["matchday"] < md]
+            prev = [m for m in all_matches if not (m["league"] == "bl1" and m["season"] == season)]
+            training = prev + cutoff
+            if len(training) < MIN_MATCHES:
+                continue
+
+            md_matches = [m for m in season_matches if m["matchday"] == md]
+            if not md_matches:
+                continue
+            ref_date = min(m["date"] for m in md_matches)
+            model = fit_dixon_coles(training, ref_date)
+
+            for m in md_matches:
+                home, away = m["home"], m["away"]
+                if home not in model["attack"] or away not in model["attack"]:
+                    continue
+
+                # Score-Matrix berechnen (gleiche Logik wie compute_tip)
+                od = _find_odds(odds_data, _normalize_team(home),
+                                _normalize_team(away)) if odds_data else None
+                if od:
+                    dc_mat = score_matrix(home, away, model)
+                    o_mat = odds_to_score_matrix(
+                        od["p_home"], od["p_draw"], od["p_away"],
+                        od.get("p_over"), od.get("ou_line", 2.5))
+                    mat = (1 - ODDS_WEIGHT) * dc_mat + ODDS_WEIGHT * o_mat
+                    mat /= mat.sum()
+                else:
+                    mat = score_matrix(home, away, model)
+
+                predicted_sum += mat
+                rh = min(m["home_goals"], n - 1)
+                ra = min(m["away_goals"], n - 1)
+                actual_count[rh, ra] += 1
+                total_matches += 1
+
+    if total_matches == 0:
+        return np.ones((n, n))
+
+    predicted_freq = predicted_sum / total_matches
+    actual_freq = actual_count / total_matches
+
+    # Korrekturfaktor mit Smoothing
+    correction = np.ones((n, n))
+    for h in range(n):
+        for a in range(n):
+            if actual_count[h, a] >= min_obs and predicted_freq[h, a] > 1e-6:
+                correction[h, a] = actual_freq[h, a] / predicted_freq[h, a]
+
+    return correction
+
+
+def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None,
+                correction_table: np.ndarray = None):
+    """Berechnet den optimalen Tipp — mit Quoten und optionaler Recalibration."""
     od = _find_odds(odds_dict, home, away) if odds_dict else None
     if od:
         odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
                                         od.get("p_over"), od.get("ou_line", 2.5))
-        return best_tip_combined(home, away, model, odds_mat)
-    return best_tip(home, away, model)
+        dc_mat = score_matrix(home, away, model)
+        combined = (1 - ODDS_WEIGHT) * dc_mat + ODDS_WEIGHT * odds_mat
+        combined /= combined.sum()
+    else:
+        combined = score_matrix(home, away, model)
+
+    if correction_table is not None:
+        combined = recalibrate_score_matrix(combined, correction_table)
+
+    ev = np.einsum("ra,tpra->tp", combined, _POINTS_TABLE)
+    ev_clipped = ev[:MAX_TIP_GOALS + 1, :MAX_TIP_GOALS + 1]
+    idx = np.unravel_index(ev_clipped.argmax(), ev_clipped.shape)
+    return idx[0], idx[1], ev_clipped[idx]
 
 
 def load_all_matches(season: int) -> list[dict]:
