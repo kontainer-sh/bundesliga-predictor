@@ -196,4 +196,4 @@ Nach Änderung des Schemas sollten die Hyperparameter (vor allem `MAX_TIP_GOALS`
 
 ## Lizenz
 
-MIT
+[MIT](LICENSE)
