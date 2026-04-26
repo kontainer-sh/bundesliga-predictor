@@ -130,10 +130,83 @@ def main():
     tips_file.write_text("\n".join(lines), encoding="utf-8")
     print(f"Tipps geschrieben: {tips_file}")
 
+    # HTML für GitHub Pages generieren
+    _generate_html(md, season, fixtures, model, live_odds, info["date"])
+
     # Auch für stdout
     print()
     for line in lines:
         print(line)
+
+
+def _generate_html(md, season, fixtures, model, live_odds, match_date):
+    """Generiert docs/index.html mit den aktuellen Tipps."""
+    import kicktipp as kt
+
+    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    match_date_str = match_date.strftime("%d.%m.%Y %H:%M")
+
+    rows = ""
+    for f in fixtures:
+        home, away = f["home"], f["away"]
+        if home not in model["attack"] or away not in model["attack"]:
+            rows += f'<tr><td>{home} – {away}</td><td>?</td><td>—</td><td>—</td></tr>\n'
+            continue
+
+        th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
+        has_odds = kt._find_odds(live_odds, home, away) is not None
+        icon = "&#9889;" if has_odds else ""
+        tend = kt.tendency_str(th, ta)
+        rows += (f'<tr><td>{icon} {home} – {away}</td>'
+                 f'<td><strong>{th}:{ta}</strong></td>'
+                 f'<td>{ev:.3f}</td><td>{tend}</td></tr>\n')
+
+    html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bundesliga Predictor — Spieltag {md}</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         max-width: 700px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }}
+  h1 {{ font-size: 1.6em; }}
+  table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+  th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+  th {{ background: #f5f5f5; font-weight: 600; }}
+  tr:hover {{ background: #f9f9f9; }}
+  .meta {{ color: #666; font-size: 0.9em; margin-bottom: 20px; }}
+  .legend {{ color: #888; font-size: 0.85em; margin-top: 10px; }}
+  footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;
+            color: #999; font-size: 0.8em; }}
+  a {{ color: #0366d6; text-decoration: none; }}
+</style>
+</head>
+<body>
+<h1>Spieltag {md} — Saison {season}/{season+1}</h1>
+<p class="meta">
+  Erster Anpfiff: {match_date_str} UTC<br>
+  Tipps generiert: {now_str} UTC
+</p>
+<table>
+<thead>
+<tr><th>Begegnung</th><th>Tipp</th><th>E[Pkt]</th><th>Tendenz</th></tr>
+</thead>
+<tbody>
+{rows}</tbody>
+</table>
+<p class="legend">&#9889; = mit Pinnacle Live-Quoten</p>
+<footer>
+  <a href="https://github.com/kontainer-sh/bundesliga-predictor">bundesliga-predictor</a> —
+  Dixon-Coles + Pinnacle-Quoten
+</footer>
+</body>
+</html>"""
+
+    docs_dir = Path(__file__).parent / "docs"
+    docs_dir.mkdir(exist_ok=True)
+    (docs_dir / "index.html").write_text(html, encoding="utf-8")
+    print(f"HTML geschrieben: {docs_dir / 'index.html'}")
 
 
 if __name__ == "__main__":
