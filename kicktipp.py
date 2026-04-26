@@ -817,6 +817,195 @@ def cmd_predict(args):
 # CLI: backtest
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Ceiling-Analyse
+# ---------------------------------------------------------------------------
+#
+# Drei verschiedene Definitionen des Ceilings:
+#
+#   market    Ceiling 2: Optimaler EV-Tipp gegen die aus Pinnacle-Closing-Odds
+#             geschätzte Wahrscheinlichkeitsverteilung P*[h, a]. Das ist das
+#             realistische theoretische Maximum für ein Modell, das die wahre
+#             Verteilung kennt.
+#
+#   hindsight Ceiling 3: Optimaler Tipp pro Spiel mit perfekter Hindsight,
+#             aber begrenzt auf MAX_TIP_GOALS. Überschätzt das echte Ceiling
+#             stark — zeigt aber den irreduziblen Stochastik-Anteil
+#             (Differenz zu market).
+#
+#   bins      Constrained Hindsight: ein einziger Tipp pro Quoten-Bin
+#             (z.B. "klarer Heimsieg") über alle Spiele in dem Bin.
+#             Realistischer als hindsight, weil ein Modell Spiele ohnehin
+#             nur grob klassifizieren kann.
+
+def _bin_for_match(p_home: float, p_draw: float, p_away: float) -> str:
+    """Klassifiziert ein Spiel anhand der Quoten-Wahrscheinlichkeiten."""
+    if p_home > 0.6:
+        return "klarer_heimsieg"
+    if p_away > 0.5:
+        return "klarer_auswaertssieg"
+    if p_home > 0.45:
+        return "heimfavorit"
+    if p_away > 0.35:
+        return "auswaertsfavorit"
+    return "ausgeglichen"
+
+
+def _ev_market(p_star: np.ndarray) -> tuple[int, int, float]:
+    """Maximalen EV-Tipp gegen Verteilung P* finden (begrenzt auf MAX_TIP_GOALS)."""
+    ev = np.einsum("ra,tpra->tp", p_star, _POINTS_TABLE)
+    ev_clipped = ev[:MAX_TIP_GOALS + 1, :MAX_TIP_GOALS + 1]
+    idx = np.unravel_index(ev_clipped.argmax(), ev_clipped.shape)
+    return idx[0], idx[1], ev_clipped[idx]
+
+
+def _hindsight_best_tip(real_h: int, real_a: int) -> tuple[int, int, int]:
+    """Bester Tipp bei perfekter Hindsight, begrenzt auf MAX_TIP_GOALS."""
+    best = (0, 0, -1)
+    for th in range(MAX_TIP_GOALS + 1):
+        for ta in range(MAX_TIP_GOALS + 1):
+            pts = kicktipp_points(th, ta, real_h, real_a)
+            if pts > best[2]:
+                best = (th, ta, pts)
+    return best
+
+
+def cmd_ceiling(args):
+    season = args.season
+    from_md = args.from_matchday
+    to_md = args.to_matchday
+
+    print(f"\n=== CEILING-ANALYSE Saison {season}/{season+1}, "
+          f"Spieltage {from_md}–{to_md} ===\n")
+
+    # Daten laden
+    all_matches = load_all_matches(season)
+    season_matches = [m for m in all_matches if
+                      m["league"] == "bl1" and m["season"] == season]
+    season_matches = [m for m in season_matches
+                      if from_md <= m["matchday"] <= to_md]
+
+    # Quoten laden (für market-Ceiling Pflicht, sonst optional)
+    odds_data = {}
+    try:
+        odds_rows = fetch_odds_csv(season)
+        for row in odds_rows:
+            key = (_normalize_team(row["home"]), _normalize_team(row["away"]))
+            odds_data[key] = {k: v for k, v in row.items()}
+    except Exception as e:
+        print(f"  Warnung: Quoten nicht geladen ({e})")
+        if "market" in args.modes or "bins" in args.modes:
+            print("  → market/bins-Ceiling brauchen Quoten, breche ab.")
+            return
+
+    # Pro Spiel: P* schätzen (aus Quoten) und Ergebnis merken
+    matches_with_data = []
+    skipped_no_odds = 0
+    for m in season_matches:
+        od = _find_odds(odds_data,
+                        _normalize_team(m["home"]),
+                        _normalize_team(m["away"]))
+        if not od:
+            skipped_no_odds += 1
+            continue
+        p_star = odds_to_score_matrix(
+            od["p_home"], od["p_draw"], od["p_away"],
+            od.get("p_over"), od.get("ou_line", 2.5)
+        )
+        matches_with_data.append({
+            "match": m,
+            "odds": od,
+            "p_star": p_star,
+        })
+
+    n_total = len(matches_with_data)
+    if n_total == 0:
+        print("  Keine Spiele mit Quoten gefunden.")
+        return
+    print(f"  Spiele insgesamt: {n_total}"
+          f" (übersprungen wegen fehlender Quoten: {skipped_no_odds})\n")
+
+    # ---- Ceiling 2: Market ----
+    if "market" in args.modes:
+        total_ev = 0.0
+        for entry in matches_with_data:
+            _, _, ev = _ev_market(entry["p_star"])
+            total_ev += ev
+        ev_per_match = total_ev / n_total
+        print(f"  [market]    Ceiling 2 (EV gegen P* aus Pinnacle-Odds):")
+        print(f"              {total_ev:7.2f} Pkt insgesamt, "
+              f"Ø {ev_per_match:.3f} / Spiel")
+
+    # ---- Ceiling 3: Hindsight ----
+    if "hindsight" in args.modes:
+        total_pts = 0
+        for entry in matches_with_data:
+            m = entry["match"]
+            _, _, pts = _hindsight_best_tip(m["home_goals"], m["away_goals"])
+            total_pts += pts
+        avg = total_pts / n_total
+        print(f"  [hindsight] Ceiling 3 (perfekte Hindsight, MAX_TIP_GOALS={MAX_TIP_GOALS}):")
+        print(f"              {total_pts:7d} Pkt insgesamt, "
+              f"Ø {avg:.3f} / Spiel")
+
+    # ---- Ceiling 3b: Constrained Hindsight (Bins) ----
+    if "bins" in args.modes:
+        # Spiele in Bins gruppieren
+        bins: dict[str, list] = {}
+        for entry in matches_with_data:
+            od = entry["odds"]
+            label = _bin_for_match(od["p_home"], od["p_draw"], od["p_away"])
+            bins.setdefault(label, []).append(entry)
+
+        print(f"  [bins]      Constrained Hindsight (ein Tipp pro Quoten-Bin):")
+        total_pts = 0
+        for label, entries in sorted(bins.items()):
+            # Für jeden Kandidaten-Tipp die Punkte über alle Spiele im Bin summieren
+            best_total = -1
+            best_tip = (0, 0)
+            for th in range(MAX_TIP_GOALS + 1):
+                for ta in range(MAX_TIP_GOALS + 1):
+                    s = sum(kicktipp_points(th, ta,
+                                            e["match"]["home_goals"],
+                                            e["match"]["away_goals"])
+                            for e in entries)
+                    if s > best_total:
+                        best_total = s
+                        best_tip = (th, ta)
+            total_pts += best_total
+            avg = best_total / len(entries)
+            print(f"                {label:22s} n={len(entries):3d}  "
+                  f"bester Tipp {best_tip[0]}:{best_tip[1]}  "
+                  f"→ {best_total:4d} Pkt (Ø {avg:.3f})")
+        avg = total_pts / n_total
+        print(f"              Summe: {total_pts:7d} Pkt, Ø {avg:.3f} / Spiel")
+
+    # ---- Vergleich: tatsächliche Modell-Performance ----
+    if args.compare_model:
+        print(f"\n  Vergleich: Modell-Performance (mit Quoten) auf gleichem Sample:")
+        # Vollständiger Backtest-Loop, aber nur für die ausgewählten Spiele
+        total_pts = 0
+        for entry in matches_with_data:
+            m = entry["match"]
+            md = m["matchday"]
+            cutoff = [x for x in season_matches if x["matchday"] < md]
+            prev = [x for x in all_matches if x not in season_matches]
+            training = prev + cutoff
+            if len(training) < MIN_MATCHES:
+                continue
+            ref_date = m["date"]
+            model = fit_dixon_coles(training, ref_date)
+            if m["home"] not in model["attack"] or m["away"] not in model["attack"]:
+                continue
+            th, ta, _ = compute_tip(m["home"], m["away"], model, odds_data)
+            total_pts += kicktipp_points(th, ta, m["home_goals"], m["away_goals"])
+        avg = total_pts / n_total
+        print(f"              {total_pts:7d} Pkt insgesamt, "
+              f"Ø {avg:.3f} / Spiel")
+
+    print()
+
+
 def cmd_backtest(args):
     season = args.season
     from_md = args.from_matchday
@@ -952,12 +1141,27 @@ def main():
     p_back.add_argument("--use-odds", action="store_true", dest="use_odds",
                         help="Historische Pinnacle-Quoten einbeziehen (football-data.co.uk)")
 
+    # ceiling
+    p_ceil = sub.add_parser("ceiling", help="Theoretisches Ceiling analysieren")
+    p_ceil.add_argument("--season", type=int, required=True,
+                        help="Saison (z.B. 2024 für 2024/25)")
+    p_ceil.add_argument("--from-matchday", type=int, default=1, dest="from_matchday")
+    p_ceil.add_argument("--to-matchday", type=int, default=34, dest="to_matchday")
+    p_ceil.add_argument("--modes", nargs="+",
+                        choices=["market", "hindsight", "bins"],
+                        default=["market", "hindsight", "bins"],
+                        help="Welche Ceilings berechnen (default: alle)")
+    p_ceil.add_argument("--compare-model", action="store_true", dest="compare_model",
+                        help="Zusätzlich tatsächliche Modell-Performance auf demselben Sample")
+
     args = parser.parse_args()
 
     if args.cmd == "predict":
         cmd_predict(args)
     elif args.cmd == "backtest":
         cmd_backtest(args)
+    elif args.cmd == "ceiling":
+        cmd_ceiling(args)
 
 
 if __name__ == "__main__":
