@@ -119,7 +119,7 @@ Die Poisson-Verteilung passt erstaunlich gut auf Fußballtore (empirisch überpr
 | Var/Mean (Auswärtstore) | 1.000 | 1.120 |
 | Häufigstes Ergebnis | 1:1 (10.9%) | 1:1 (11.5%) |
 
-Die leichte Überdispersion (~12–15%) wurde mit Negativer Binomialverteilung getestet, bringt aber keine messbare Verbesserung bei unserem Punkteschema.
+Es zeigt sich eine moderate Überdispersion (~12–15 %), die bei der Stichprobengröße statistisch signifikant ist. Tests mit der Negativen Binomialverteilung als flexiblere Alternative bringen jedoch keine messbare Verbesserung beim Kicktipp-Punkteschema — der Effekt ist real, aber für unser Optimierungsziel irrelevant.
 
 ### Optimierte Hyperparameter (Cross-Validation über 3 Saisons)
 
