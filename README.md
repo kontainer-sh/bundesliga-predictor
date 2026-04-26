@@ -15,6 +15,8 @@ Kombiniert ein **Dixon-Coles-Modell** (Teamstärke aus historischen Ergebnissen)
 
 Punkteschema: Tendenz 1, Tordifferenz/Remis 2, Exakt 3 (konfigurierbar im Code).
 
+Eine Einordnung dieser Zahlen — gegenüber einem uninformierten Baseline und gegenüber dem theoretisch erreichbaren Maximum — findet sich im Abschnitt [Theoretische Grenzen](#theoretische-grenzen).
+
 ## Setup
 
 ```bash
