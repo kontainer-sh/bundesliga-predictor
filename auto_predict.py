@@ -79,7 +79,7 @@ def main():
 
     # Prüfe ob Tipps schon existieren
     TIPS_DIR.mkdir(exist_ok=True)
-    tips_file = TIPS_DIR / f"spieltag_{md:02d}.md"
+    tips_file = TIPS_DIR / f"{season}_{season+1}_spieltag_{md:02d}.md"
     if tips_file.exists():
         print(f"Tipps existieren bereits: {tips_file}")
         return
