@@ -152,8 +152,13 @@ Perfektes Oracle:                        810 Pkt
 ```
 
 Zwischen uninformiert (192) und Market-Ceiling (232) liegen 40 Punkte Spielraum.
-Unser Modell nutzt davon **39 Punkte (97.5%)**. Der verbleibende Punkt ist Kalibrierungsverlust
-durch die Poisson-Rekonstruktion aus H/D/A-Quoten — nur mit Correct Score-Quoten behebbar.
+Unser Modell nutzt davon **39 Punkte (97.5%)**.
+
+**Einschränkung:** Das Market-Ceiling nutzt dieselbe Poisson-Rekonstruktion aus H/D/A-Quoten
+wie unser Modell. Das wahre Ceiling mit Pinnacles internem Copula-Modell (volle Score-Verteilung)
+könnte höher liegen — dann wäre die tatsächliche Ausnutzung eher bei 85–90%. Ohne Correct
+Score-Quoten lässt sich das nicht genau bestimmen. Außerdem basiert die Berechnung auf einer
+einzelnen Saison (270 Spiele).
 
 In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
 
