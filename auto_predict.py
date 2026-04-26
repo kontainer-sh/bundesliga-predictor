@@ -279,7 +279,7 @@ liefern den Markt-Konsens aus tausenden informierter Wetter.</p>
 <p>Beide Quellen werden zu einer Wahrscheinlichkeitsmatrix für alle möglichen
 Ergebnisse kombiniert. Der Tipp mit dem höchsten <strong>erwarteten Punkteertrag</strong>
 wird gewählt — analytisch exakt berechnet.</p>
-<p>Im Backtest erreicht das Modell <strong>95% des theoretischen Maximums</strong>.
+<p>Im Backtest nutzt das Modell <strong>97.5% des theoretisch möglichen Spielraums</strong>.
 In einer 20er-Liga: durchschnittlich Platz 4, ~28% Titelchance.</p>
 </div>
 </details>
