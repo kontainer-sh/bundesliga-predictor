@@ -94,11 +94,22 @@ python kicktipp.py backtest --season 2024 --from-matchday 10 --to-matchday 30
 ```
 Immer 2:1 tippen (uninformiert):     ~192 Pkt / Saison
 Unser Modell (mit Quoten):           ~231 Pkt / Saison
-Realistisches Ceiling:               ~245 Pkt / Saison
+Market-Ceiling (perfekte Kalibrierung): ~232 Pkt / Saison
 Perfektes Oracle:                     810 Pkt / Saison
 ```
 
+Das Modell erreicht **95% des Market-Ceilings**. Die restlichen 5% sind Kalibrierungsverlust
+durch die Poisson-Rekonstruktion aus H/D/A-Quoten — nur mit Correct Score-Quoten behebbar.
+
 In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
+
+### Ceiling-Analyse
+
+```bash
+python kicktipp.py ceiling --season 2024
+python kicktipp.py ceiling --season 2024 --compare-model
+python kicktipp.py ceiling --season 2024 --modes market bins
+```
 
 ## Caching
 
