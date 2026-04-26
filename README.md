@@ -1,8 +1,10 @@
-# Kicktipp Bundesliga Predictor
+# Bundesliga Predictor
 
 Statistisches Vorhersagemodell für die Bundesliga, optimiert auf das Kicktipp-Punkteschema.
 
 Kombiniert ein **Dixon-Coles-Modell** (Teamstärke aus historischen Ergebnissen) mit **Pinnacle-Wettquoten** (Markt-Konsens) zu einem erwartungswert-optimalen Tipp.
+
+**Live-Tipps:** [kontainer.sh/bundesliga-predictor](https://kontainer.sh/bundesliga-predictor/) (automatisch aktualisiert vor jedem Spieltag)
 
 ## Ergebnisse (Backtest Saison 2024/25)
 
