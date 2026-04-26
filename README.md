@@ -194,6 +194,13 @@ Gängige Kicktipp-Schemata:
 
 Nach Änderung des Schemas sollten die Hyperparameter (vor allem `MAX_TIP_GOALS` und `ODDS_WEIGHT`) per Backtest überprüft werden.
 
+## Quellen
+
+- Dixon, M. J., & Coles, S. G. (1997). [Modelling Association Football Scores and Inefficiencies in the Football Betting Market](https://doi.org/10.1111/1467-9876.00065). *Journal of the Royal Statistical Society: Series C*, 46(2), 265–280.
+- Heuer, A. (2012). *Der perfekte Tipp: Statistik des Fußballspiels*. Wiley-VCH.
+- Cavan, E. (2024). [The Mathematics Behind How Pinnacle Prices Pregame Markets](https://ecavan.medium.com/the-mathematics-behind-how-pinnacle-prices-pregame-markets-a7e21b78a141). Medium.
+- Egidi, L., Pauli, F., & Torelli, N. (2018). [Combining historical data and bookmakers' odds in modelling football scores](https://doi.org/10.1177/1471082X18798414). *Statistical Modelling*, 18(5–6), 436–459.
+
 ## Lizenz
 
 [MIT](LICENSE)
