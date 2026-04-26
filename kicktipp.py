@@ -715,6 +715,12 @@ def _find_odds(odds_dict: dict, home: str, away: str) -> dict | None:
     return None
 
 
+# HINWEIS: Die Recalibration-Korrektur wurde getestet und führt zu
+# -27 bis -35 Punkten gegenüber dem Baseline-Modell. Bias-Muster sind
+# zwischen Saisons nicht stabil genug, um sie post-hoc auszunutzen.
+# Funktion bleibt für zukünftige Experimente mit größeren Datensätzen.
+# Siehe README → "Was wir getestet haben (und was nicht hilft)".
+
 def recalibrate_score_matrix(mat: np.ndarray, correction_table: np.ndarray) -> np.ndarray:
     """Korrigiert eine Score-Matrix elementweise und renormiert."""
     n = min(mat.shape[0], correction_table.shape[0])
