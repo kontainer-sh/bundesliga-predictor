@@ -6,9 +6,9 @@ Kombiniert ein **Dixon-Coles-Modell** (Teamstärke aus historischen Ergebnissen)
 
 **Live-Tipps:** [kontainer.sh/bundesliga-predictor](https://kontainer.sh/bundesliga-predictor/) (automatisch aktualisiert vor jedem Spieltag)
 
-## Ergebnisse (Backtest Saison 2024/25)
+## Ergebnisse (Backtest Saison 2024/25, Spieltag 1–30, 270 Spiele)
 
-| Modus | Punkte (30 ST) | Ø / Spiel |
+| Modus | Punkte | Ø / Spiel |
 |---|---|---|
 | Nur Modell | 211 | 0.781 |
 | Modell + Quoten | **231** | **0.856** |
