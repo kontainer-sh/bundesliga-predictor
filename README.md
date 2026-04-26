@@ -148,7 +148,7 @@ Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
 Immer 2:1 tippen (uninformiert):        ~192 Pkt
 Unser Modell (mit Quoten):              ~231 Pkt
 Poisson-Ceiling (aus H/D/A-Quoten):    ~232 Pkt
-Geschätztes wahres Ceiling:             ~240–260 Pkt
+Geschätztes wahres Ceiling:             ~237–252 Pkt
 Perfektes Oracle:                        810 Pkt
 ```
 
@@ -159,9 +159,9 @@ Das **wahre Ceiling** mit Pinnacles internem Copula-Modell (volle Score-Verteilu
 Score-Quoten) liegt jedoch höher. Correct Score-Quoten würden nicht die Tendenz-Trefferquote
 verbessern (die kommt bereits aus H/D/A), sondern die Wahl des exakten Ergebnisses innerhalb
 der richtigen Tendenz — also mehr 3-Punkt- und 2-Punkt-Treffer statt 1-Punkt-Treffer.
-Grobe Abschätzung: +10–30 Punkte, also Ceiling bei ~240–260.
+Grobe Abschätzung: +5–20 Punkte, also Ceiling bei ~237–252.
 
-Unser Modell nutzt damit **~75–85% des geschätzten wahren Spielraums**. Ohne Correct
+Unser Modell nutzt damit **~70–85% des geschätzten wahren Spielraums**. Ohne Correct
 Score-Quoten (nicht kostenlos verfügbar) lässt sich das nicht genauer bestimmen.
 Die Berechnung basiert auf einer einzelnen Saison (270 Spiele).
 
