@@ -147,18 +147,23 @@ Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
 ```
 Immer 2:1 tippen (uninformiert):        ~192 Pkt
 Unser Modell (mit Quoten):              ~231 Pkt
-Market-Ceiling (perfekte Kalibrierung): ~232 Pkt
+Poisson-Ceiling (aus H/D/A-Quoten):    ~232 Pkt
+Geschätztes wahres Ceiling:             ~240–260 Pkt
 Perfektes Oracle:                        810 Pkt
 ```
 
-Zwischen uninformiert (192) und Market-Ceiling (232) liegen 40 Punkte Spielraum.
-Unser Modell nutzt davon **39 Punkte (97.5%)**.
+Das **Poisson-Ceiling** (232 Pkt) nutzt dieselbe Poisson-Rekonstruktion aus H/D/A-Quoten wie
+unser Modell. Unser Modell schöpft dieses Ceiling fast vollständig aus (231 von 232).
 
-**Einschränkung:** Das Market-Ceiling nutzt dieselbe Poisson-Rekonstruktion aus H/D/A-Quoten
-wie unser Modell. Das wahre Ceiling mit Pinnacles internem Copula-Modell (volle Score-Verteilung)
-könnte höher liegen — dann wäre die tatsächliche Ausnutzung eher bei 85–90%. Ohne Correct
-Score-Quoten lässt sich das nicht genau bestimmen. Außerdem basiert die Berechnung auf einer
-einzelnen Saison (270 Spiele).
+Das **wahre Ceiling** mit Pinnacles internem Copula-Modell (volle Score-Verteilung aus Correct
+Score-Quoten) liegt jedoch höher. Correct Score-Quoten würden nicht die Tendenz-Trefferquote
+verbessern (die kommt bereits aus H/D/A), sondern die Wahl des exakten Ergebnisses innerhalb
+der richtigen Tendenz — also mehr 3-Punkt- und 2-Punkt-Treffer statt 1-Punkt-Treffer.
+Grobe Abschätzung: +10–30 Punkte, also Ceiling bei ~240–260.
+
+Unser Modell nutzt damit **~75–85% des geschätzten wahren Spielraums**. Ohne Correct
+Score-Quoten (nicht kostenlos verfügbar) lässt sich das nicht genauer bestimmen.
+Die Berechnung basiert auf einer einzelnen Saison (270 Spiele).
 
 In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
 
