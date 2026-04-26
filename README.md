@@ -159,6 +159,12 @@ python kicktipp.py ceiling --season 2024 --compare-model
 python kicktipp.py ceiling --season 2024 --modes market bins
 ```
 
+## Automatische Tipps (GitHub Action)
+
+Eine GitHub Action generiert täglich um 10:00 MESZ automatisch Tipps für den nächsten Spieltag (wenn dieser innerhalb von 3 Tagen liegt) und legt sie unter `tips/spieltag_XX.md` ab.
+
+Setup: `ODDS_API_KEY` als [GitHub Secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions) hinterlegen. Die Action kann auch manuell über den "Run workflow"-Button ausgelöst werden.
+
 ## Caching
 
 - **OpenLigaDB / football-data.co.uk**: Dauerhaft in `.cache/` gecacht
