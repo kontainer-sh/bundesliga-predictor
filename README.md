@@ -141,11 +141,13 @@ Die leichte Überdispersion (~12–15%) wurde mit Negativer Binomialverteilung g
 
 ## Theoretische Grenzen
 
+Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
+
 ```
-Immer 2:1 tippen (uninformiert):     ~192 Pkt / Saison
-Unser Modell (mit Quoten):           ~231 Pkt / Saison
-Market-Ceiling (perfekte Kalibrierung): ~232 Pkt / Saison
-Perfektes Oracle:                     810 Pkt / Saison
+Immer 2:1 tippen (uninformiert):        ~192 Pkt
+Unser Modell (mit Quoten):              ~231 Pkt
+Market-Ceiling (perfekte Kalibrierung): ~232 Pkt
+Perfektes Oracle:                        810 Pkt
 ```
 
 Das Modell erreicht **95% des Market-Ceilings**. Die restlichen 5% sind Kalibrierungsverlust
