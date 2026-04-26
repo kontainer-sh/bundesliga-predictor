@@ -147,6 +147,7 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
     match_date_str = match_date.strftime("%d.%m.%Y %H:%M")
 
     rows = ""
+    total_ev = 0.0
     for f in fixtures:
         home, away = f["home"], f["away"]
         if home not in model["attack"] or away not in model["attack"]:
@@ -154,6 +155,7 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
             continue
 
         th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
+        total_ev += ev
         has_odds = kt._find_odds(live_odds, home, away) is not None
         badge = '<span class="odds-badge">&#9889; Odds</span>' if has_odds else ""
         tend = kt.tendency_str(th, ta)
@@ -162,6 +164,10 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
                  f'<td class="tip">{th}:{ta}</td>'
                  f'<td class="ev">{ev:.3f}</td>'
                  f'<td class="tend {tend_class}">{tend}</td></tr>\n')
+    rows += (f'<tr style="border-top:2px solid #e5e5e5">'
+             f'<td class="match"><strong>Summe</strong></td>'
+             f'<td></td><td class="ev"><strong>{total_ev:.2f}</strong></td>'
+             f'<td></td></tr>\n')
 
     season_str = f"{season}/{season+1}"
     title = f"Bundesliga Tipps Spieltag {md} — Saison {season_str}"
