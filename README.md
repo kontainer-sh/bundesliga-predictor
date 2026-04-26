@@ -150,7 +150,8 @@ Market-Ceiling (perfekte Kalibrierung): ~232 Pkt
 Perfektes Oracle:                        810 Pkt
 ```
 
-Das Modell erreicht **95% des Market-Ceilings**. Die restlichen 5% sind Kalibrierungsverlust
+Zwischen uninformiert (192) und Market-Ceiling (232) liegen 40 Punkte Spielraum.
+Unser Modell nutzt davon **39 Punkte (97.5%)**. Der verbleibende Punkt ist Kalibrierungsverlust
 durch die Poisson-Rekonstruktion aus H/D/A-Quoten — nur mit Correct Score-Quoten behebbar.
 
 In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
