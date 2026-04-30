@@ -6,6 +6,9 @@ on:
     - cron: "0 8 * * *"
   workflow_dispatch: # Manuell auslösbar
 
+permissions:
+  contents: write
+
 jobs:
   predict:
     runs-on: ubuntu-latest
