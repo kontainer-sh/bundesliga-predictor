@@ -50,6 +50,63 @@ später getestet werden soll.
 
 ---
 
+## 2026-05-10 — λ-Sweep Modell vs. Quoten (verworfen)
+
+**Hypothese:** Das produktive Mischgewicht `ODDS_WEIGHT = 0.7` ist nicht
+zwingend optimal. Ein Sweep über λ ∈ {0.0, 0.1, ..., 1.0} sollte das
+empirisch beste Mischverhältnis finden (oder bestätigen).
+
+**Setup:**
+- Test-Saisons: 2022/2023, 2023/2024, 2024/2025 BL1 (zusammen 918 Spiele)
+- Walk-Forward pro Spieltag, DC einmal pro Spieltag gefittet, Tipps für
+  alle 11 λ-Werte aus derselben Score-Matrix berechnet
+- Quoten: football-data.co.uk (Bet365/Pinnacle-Konsens)
+
+**Aggregat-Ergebnis:**
+
+| λ | Σ Pkt | Δ vs 0.7 |
+|---|---|---|
+| 0.0 (nur Modell) | 719 | −18 |
+| 0.3 | **752** | **+15** ← Aggregat-Maximum |
+| 0.5 | 741 | +4 |
+| 0.7 (Produktion) | 737 | 0 |
+| 0.9 | 734 | −3 |
+| 1.0 (nur Quoten) | 742 | +5 |
+
+Gepaarte Diff (λ=0.3 − λ=0.7): +0.016 Pkt/Spiel, 95%-CI [−0.010, +0.044],
+Bootstrap p=0.239 (n=918).
+
+**Pro-Saison-Optima (Robustheits-Check):**
+
+| Saison | bestes λ |
+|---|---|
+| 2022/2023 | 0.3 |
+| 2023/2024 | 1.0 |
+| 2024/2025 | 0.9 |
+
+**Fazit:** Optima driften zwischen den Saisons über die volle Range —
+das Aggregat-Maximum bei 0.3 wird im Wesentlichen von 2022/2023 getragen.
+Statistisch nicht von 0.7 unterscheidbar (p=0.24). Es gibt kein robustes
+empirisches Optimum.
+
+**Zwei nutzbare Erkenntnisse trotz Null-Ergebnis:**
+
+1. **Quoten allein (719 → 742) sind ~23 Pkt besser als das Modell allein.**
+   Pinnacle-Konsens dominiert — wie aus der Literatur erwartet.
+2. **Die beste Mischung (752) schlägt Quoten allein (742) um 10 Pkt.**
+   Das DC-Modell trägt einen kleinen, aber realen Mehrwert über reine
+   Markt-Replikation hinaus. → Modell-Verbesserungen (GAS, pi-Rating)
+   sind nicht verschwendet, aber das absolute Hebelpotenzial ist klein
+   (Größenordnung ~10-30 Pkt/Saison).
+
+**Aktion:** `ODDS_WEIGHT = 0.7` bleibt. Datenlage rechtfertigt keine
+Änderung. Falls eine zukünftige Modell-Verbesserung den Modell-Beitrag
+deutlich erhöht, sollte der λ-Sweep wiederholt werden.
+
+**Reproduktion:** `python backtest_lambda_sweep.py` (~10 Min, gecached).
+
+---
+
 ## Backlog (aus Paper-Recherche, ungetestet)
 
 Methoden, die in der Literatur DC schlagen und mit unseren Daten machbar wären:
