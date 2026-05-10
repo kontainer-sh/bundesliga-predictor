@@ -77,14 +77,11 @@ def main():
         print(f"Noch {days:.1f} Tage — zu früh für Tipps.")
         return
 
-    # Prüfe ob Tipps schon existieren
+    # Tipps werden bei jedem Lauf neu generiert — Quoten verbessern sich
+    # näher am Anpfiff, daher ist eine Aktualisierung wertvoll.
     TIPS_DIR.mkdir(exist_ok=True)
     tips_file = TIPS_DIR / f"{season}_{season+1}_spieltag_{md:02d}.md"
-    if tips_file.exists():
-        print(f"Tipps existieren bereits: {tips_file}")
-        return
 
-    # Tipps generieren via kicktipp.py
     print(f"\nGeneriere Tipps für Spieltag {md}...\n")
     import kicktipp as kt
 
