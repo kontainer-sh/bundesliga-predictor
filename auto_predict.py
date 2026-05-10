@@ -136,187 +136,75 @@ def main():
         print(line)
 
 
-def _generate_html(md, season, fixtures, model, live_odds, match_date):
-    """Generiert docs/index.html mit den aktuellen Tipps."""
+WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+TEND_CLASS = {"Heimsieg": "tend-home", "Auswärtssieg": "tend-away", "Unentschieden": "tend-draw"}
+
+
+def _build_rows(fixtures, model, live_odds):
+    """Bereitet Zeilendaten + Tagestrenner für das Template auf."""
+    from datetime import timedelta
     import kicktipp as kt
 
-    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
-    match_date_str = match_date.strftime("%d.%m.%Y %H:%M")
-
-    WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-
-    rows = ""
+    rows = []
     total_ev = 0.0
     last_date = None
     for f in fixtures:
         home, away = f["home"], f["away"]
         kickoff = f.get("kickoff")
 
-        # Datum/Uhrzeit formatieren (MESZ = UTC+2)
         if kickoff:
-            from datetime import timedelta
-            kickoff_local = kickoff + timedelta(hours=2)
-            wt = WOCHENTAGE[kickoff_local.weekday()]
-            ko_str = f'{wt} {kickoff_local.strftime("%d.%m. %H:%M")}'
+            kickoff_local = kickoff + timedelta(hours=2)  # MESZ = UTC+2
+            ko_str = f'{WOCHENTAGE[kickoff_local.weekday()]} {kickoff_local.strftime("%d.%m. %H:%M")}'
             date_key = kickoff_local.date()
         else:
             ko_str = ""
             date_key = None
 
-        # Trennzeile bei neuem Tag
-        if date_key and date_key != last_date and last_date is not None:
-            rows += f'<tr class="day-sep"><td colspan="5"></td></tr>\n'
-        last_date = date_key
+        show_separator = bool(date_key and last_date and date_key != last_date)
+        last_date = date_key or last_date
 
-        if home not in model["attack"] or away not in model["attack"]:
-            rows += (f'<tr><td class="kickoff">{ko_str}</td>'
-                     f'<td class="match">{home} – {away}</td>'
-                     f'<td class="tip">?</td><td class="ev">—</td><td>—</td></tr>\n')
-            continue
+        row = {"kickoff_str": ko_str, "home": home, "away": away,
+               "show_separator": show_separator, "has_odds": False,
+               "tip": None, "ev": None, "tend": None, "tend_class": None}
 
-        th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
-        total_ev += ev
-        has_odds = kt._find_odds(live_odds, home, away) is not None
-        badge = '<span class="odds-badge">&#9889; Odds</span>' if has_odds else ""
-        tend = kt.tendency_str(th, ta)
-        tend_class = {"Heimsieg": "tend-home", "Auswärtssieg": "tend-away", "Unentschieden": "tend-draw"}[tend]
-        rows += (f'<tr><td class="kickoff">{ko_str}</td>'
-                 f'<td class="match">{home} – {away}{badge}</td>'
-                 f'<td class="tip">{th}:{ta}</td>'
-                 f'<td class="ev">{ev:.3f}</td>'
-                 f'<td class="tend {tend_class}">{tend}</td></tr>\n')
-    rows += (f'<tr style="border-top:2px solid #e5e5e5">'
-             f'<td></td><td class="match"><strong>Summe</strong></td>'
-             f'<td></td><td class="ev"><strong>{total_ev:.2f}</strong></td>'
-             f'<td></td></tr>\n')
+        if home in model["attack"] and away in model["attack"]:
+            th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
+            total_ev += ev
+            tend = kt.tendency_str(th, ta)
+            row.update(tip=f"{th}:{ta}", ev=ev, tend=tend,
+                       tend_class=TEND_CLASS[tend],
+                       has_odds=kt._find_odds(live_odds, home, away) is not None)
+        rows.append(row)
 
+    return rows, total_ev
+
+
+def _generate_html(md, season, fixtures, model, live_odds, match_date):
+    """Rendert docs/index.html aus templates/index.html.j2."""
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    import kicktipp as kt
+
+    rows, total_ev = _build_rows(fixtures, model, live_odds)
     season_str = f"{season}/{season+1}"
-    title = f"Bundesliga Tipps Spieltag {md} — Saison {season_str}"
-    desc = (f"Statistisch optimierte Bundesliga-Tipps für Spieltag {md} "
-            f"(Saison {season_str}). Dixon-Coles-Modell kombiniert mit "
-            f"Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag.")
-    canonical = "https://kontainer.sh/bundesliga-predictor/"
 
-    html = f"""<!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title}</title>
-<meta name="description" content="{desc}">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="{canonical}">
-<meta property="og:title" content="{title}">
-<meta property="og:description" content="{desc}">
-<meta property="og:type" content="website">
-<meta property="og:url" content="{canonical}">
-<style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-         max-width: 760px; margin: 0 auto; padding: 24px 20px; color: #1a1a1a;
-         background: #fafafa; }}
-  header {{ margin-bottom: 32px; }}
-  h1 {{ font-size: 1.5em; margin-bottom: 4px; }}
-  h1 span {{ color: #888; font-weight: 400; font-size: 0.75em; }}
-  .subtitle {{ color: #555; font-size: 1.05em; margin-bottom: 16px; }}
-  .meta {{ color: #888; font-size: 0.85em; line-height: 1.6; }}
-  .card {{ background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-           padding: 20px; margin: 24px 0; }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  th {{ text-align: left; padding: 10px 12px; color: #666; font-weight: 600;
-       font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.03em;
-       border-bottom: 2px solid #e5e5e5; }}
-  td {{ padding: 12px; border-bottom: 1px solid #f0f0f0; }}
-  tr:last-child td {{ border-bottom: none; }}
-  tr:hover td {{ background: #f8f9fa; }}
-  .match {{ font-weight: 500; }}
-  .tip {{ font-size: 1.15em; font-weight: 700; color: #1a1a1a; text-align: center; }}
-  .ev {{ text-align: center; color: #666; font-size: 0.9em; }}
-  .tend {{ font-size: 0.9em; }}
-  .tend-home {{ color: #2563eb; }}
-  .tend-draw {{ color: #7c3aed; }}
-  .tend-away {{ color: #dc2626; }}
-  .kickoff {{ color: #888; font-size: 0.82em; white-space: nowrap; }}
-  .day-sep td {{ padding: 2px 0; border-bottom: 2px solid #e0e0e0; }}
-  .odds-badge {{ display: inline-block; background: #fef3c7; color: #92400e;
-                 font-size: 0.7em; padding: 2px 6px; border-radius: 3px;
-                 margin-left: 6px; vertical-align: middle; }}
-  .legend {{ color: #999; font-size: 0.8em; margin-top: 8px; padding: 0 12px; }}
-  .method {{ margin: 24px 0; }}
-  .method summary {{ cursor: pointer; color: #555; font-size: 0.95em; font-weight: 500; }}
-  .method-content {{ margin-top: 12px; color: #666; font-size: 0.88em; line-height: 1.7; }}
-  .method-content p {{ margin-bottom: 8px; }}
-  footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5;
-            color: #aaa; font-size: 0.8em; line-height: 1.8; }}
-  footer a {{ color: #666; text-decoration: none; }}
-  footer a:hover {{ text-decoration: underline; }}
-  @media (max-width: 500px) {{
-    .match {{ font-size: 0.9em; }}
-    th, td {{ padding: 8px 6px; }}
-  }}
-</style>
-</head>
-<body>
-<header>
-  <h1>Bundesliga Tipps <span>Spieltag {md}</span></h1>
-  <p class="subtitle">Saison {season_str}</p>
-  <p class="meta">
-    Anpfiff: {match_date_str} UTC &middot;
-    Aktualisiert: {now_str} UTC
-  </p>
-</header>
-
-<div class="card">
-<table>
-<thead>
-<tr><th>Anpfiff</th><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
-</thead>
-<tbody>
-{rows}</tbody>
-</table>
-<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Zeiten in MESZ</p>
-</div>
-
-<details class="method">
-<summary>Punkteschema</summary>
-<div class="method-content">
-<p>Optimiert auf folgendes Kicktipp-Punkteschema:</p>
-<table style="max-width:400px; margin: 8px 0 12px 0;">
-<tr><td><strong>Exaktes Ergebnis</strong></td><td style="text-align:right"><strong>{kt.POINTS_EXACT} Punkte</strong></td></tr>
-<tr><td>Richtige Tordifferenz (Sieg)</td><td style="text-align:right">{kt.POINTS_GOAL_DIFF} Punkte</td></tr>
-<tr><td>Richtige Tendenz (Unentschieden)</td><td style="text-align:right">{kt.POINTS_DRAW_TENDENCY} Punkte</td></tr>
-<tr><td>Richtige Tendenz (Sieg)</td><td style="text-align:right">{kt.POINTS_TENDENCY} Punkt</td></tr>
-<tr><td>Falsch</td><td style="text-align:right">0 Punkte</td></tr>
-</table>
-<p>E[Pkt] = erwarteter Punkteertrag des Tipps unter diesem Schema.</p>
-</div>
-</details>
-
-<details class="method">
-<summary>Wie werden die Tipps berechnet?</summary>
-<div class="method-content">
-<p>Die Tipps kombinieren zwei Ansätze: Ein <strong>Dixon-Coles-Modell</strong> (30%)
-schätzt die Angriffs- und Abwehrstärke jedes Teams aus historischen Ergebnissen
-der letzten 3+ Saisons (1. und 2. Bundesliga). <strong>Pinnacle-Wettquoten</strong> (70%)
-liefern den Markt-Konsens aus tausenden informierter Wetter.</p>
-<p>Beide Quellen werden zu einer Wahrscheinlichkeitsmatrix für alle möglichen
-Ergebnisse kombiniert. Der Tipp mit dem höchsten <strong>erwarteten Punkteertrag</strong>
-wird gewählt — analytisch exakt berechnet.</p>
-<p>Im Backtest nutzt das Modell geschätzt <strong>75–85% des theoretisch möglichen Spielraums</strong>.
-In einer 20er-Liga: durchschnittlich Platz 4, ~28% Titelchance.</p>
-</div>
-</details>
-
-<footer>
-  <a href="https://github.com/kontainer-sh/bundesliga-predictor">Quellcode auf GitHub</a>
-  &middot; Open Source (MIT)
-  &middot; Dixon-Coles + Pinnacle-Quoten<br>
-  Daten: <a href="https://www.openligadb.de">OpenLigaDB</a>,
-  <a href="https://www.football-data.co.uk">football-data.co.uk</a>,
-  <a href="https://the-odds-api.com">The Odds API</a>
-</footer>
-</body>
-</html>"""
+    env = Environment(
+        loader=FileSystemLoader(Path(__file__).parent / "templates"),
+        autoescape=select_autoescape(["html", "j2"]),
+        trim_blocks=False, lstrip_blocks=False,
+    )
+    html = env.get_template("index.html.j2").render(
+        title=f"Bundesliga Tipps Spieltag {md} — Saison {season_str}",
+        desc=(f"Statistisch optimierte Bundesliga-Tipps für Spieltag {md} "
+              f"(Saison {season_str}). Dixon-Coles-Modell kombiniert mit "
+              f"Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag."),
+        canonical="https://kontainer.sh/bundesliga-predictor/",
+        md=md, season_str=season_str,
+        match_date_str=match_date.strftime("%d.%m.%Y %H:%M"),
+        now_str=datetime.now().strftime("%d.%m.%Y %H:%M"),
+        rows=rows, total_ev=total_ev,
+        points={"exact": kt.POINTS_EXACT, "goal_diff": kt.POINTS_GOAL_DIFF,
+                "draw_tendency": kt.POINTS_DRAW_TENDENCY, "tendency": kt.POINTS_TENDENCY},
+    )
 
     docs_dir = Path(__file__).parent / "docs"
     docs_dir.mkdir(exist_ok=True)
