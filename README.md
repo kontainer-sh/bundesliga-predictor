@@ -142,6 +142,23 @@ Es zeigt sich eine moderate Überdispersion (~12–15 %), die bei der Stichprobe
 | Remis-Boost | -13 Pkt — Modell optimiert schon korrekt |
 | Score-Matrix Recalibration | -33 Pkt — Bias-Muster instabil über Saisons |
 
+### Statistische Validierung (Mai 2026)
+
+Drei diagnostische Tests über 918 BL1-Spiele (Saisons 2022/23–2024/25), um den
+Mehrwert des DC-Modells gegenüber reiner Markt-Replikation (λ=1.0) zu prüfen:
+
+| Test | Befund |
+|---|---|
+| **Disagreement-Test** (Paired Bootstrap nur auf Spielen, bei denen Modell ≠ Quoten tippen) | Kein signifikanter Edge: λ=0.7 → p=0.72, λ=0.3 → p=0.59. Der scheinbare λ=0.3-Vorteil aus dem λ-Sweep ist ein Single-Season-Artefakt. |
+| **EV-Gap-Sensitivität** (binweise Auswertung nach EV(bester Tipp) − EV(zweitbester)) | 88.7% aller Disagreements liegen bei Gap < 0.01 Pkt. Bei Gap ≥ 0.04 stimmen Modell und Quoten zu 100% überein. Pro Bin keine konsistente Richtung des Δ. |
+| **Calibration-Test** (Brier, LogLoss, ECE für 1X2/Over/BTTS) | Score-Matrix ist bereits gut kalibriert (ECE < 0.04). Quoten sind schärfer, DC besser kalibriert; der 70/30-Mix halbiert die ECE-Lücke. Im Kicktipp-Argmax-Regime praktisch unsichtbar. |
+
+**Interpretation:** Der DC-Layer trägt zu Kicktipp-Punkten keinen statistisch
+nachweisbaren Mehrwert über die Quoten hinaus — er bleibt aber als
+*Fallback-Pfad* erhalten: wenn die Odds-API ausfällt oder ein Spiel nicht
+abgedeckt ist, übernimmt automatisch das DC-Modell allein (`kicktipp.py:822-830`).
+Details und Reproduktion: [EXPERIMENTS.md](EXPERIMENTS.md).
+
 ## Theoretische Grenzen
 
 Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
