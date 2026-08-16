@@ -1,0 +1,38 @@
+name: Submit-Tips
+
+# Manuell auslösbar. Der Schedule ist bewusst auskommentiert — erst aktivieren,
+# wenn die automatische Abgabe wirklich scharf geschaltet werden soll.
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: "Wirklich abgeben? (aus = Dry-Run, nur Anzeige)"
+        type: boolean
+        default: false
+  # schedule:
+  #   - cron: "0 6 * * *"   # täglich 06:00 UTC; submit_tips.py gibt nur bei offenem Spieltag ab
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Submit tips
+        env:
+          KICKTIPP_EMAIL: ${{ secrets.KICKTIPP_EMAIL }}
+          KICKTIPP_PASSWORD: ${{ secrets.KICKTIPP_PASSWORD }}
+          KICKTIPP_COMMUNITY: ${{ secrets.KICKTIPP_COMMUNITY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        # Bei geplantem Lauf (schedule) immer Dry-Run, bis --submit hart gesetzt wird.
+        run: python submit_tips.py ${{ github.event.inputs.submit == 'true' && '--submit' || '' }}
