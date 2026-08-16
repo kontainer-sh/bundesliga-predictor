@@ -499,16 +499,53 @@ Quelle, Retail-CS-Märkte hochmargig/verrauscht.
 
 ---
 
+## 2026-08-16 — Varianz-Strategie kalibriert: hilft „Zocken bei Rückstand"?
+
+**Frage (Backlog #1):** Ab welchem Rückstand / wie vielen Restspieltagen schlägt
+varianzreiches Tippen (γ: Tipp = argmax(EV + γ·Std)) die EV-Maximierung auf
+P(Runde gewinnen)? Betrifft Strategie bei *fixen* Wahrscheinlichkeiten.
+
+**Methode:** Monte-Carlo, DGP = DC-Score-Matrizen (`training_split`). Heterogenes
+20er-Feld (jeder Gegner mit eigener Softmax-Temperatur T_i), kalibriert an
+öffentlichen Punkte-Ankern: EV-max ≈ 0.83, naiv „2:1" = 0.669 Pkt/Spiel. Drei
+Feldstärken. Repro: `python backtest_variance_strategy.py`
+(`--calibrate` für die T→Punkte-Abbildung; `--field sharp|mixed|casual`).
+
+**Ergebnis (ΔP(win) von γ* gegenüber EV-max):**
+
+| Feld (Ø Pkt/Spiel) | Wo hilft Varianz? | max ΔP |
+|---|---|---|
+| **sharp** (0.79) | Rückstand + wenige Restspiele → γ=2 | **+0.026** |
+| mixed (0.68) | nur extremer Rückstand, marginal | +0.005 |
+| **casual** (0.63) | nirgends — EV-max dominiert überall | +0.003 |
+
+**Befund:** Die Varianz-Strategie hat einen **echten, theoriekonformen Edge — aber
+nur gegen ein scharfes Feld** (Gegner spielen selbst nahe EV-max; dann muss man
+zocken, um zu überholen). Gegen ein **casual Feld — genau die reale Runde (85 %
+unter EV-Baseline) — hilft Varianz nie**; EV-max dominiert in jeder Rückstand-/
+Restspiel-Zelle. Als scharfer EV-max-Tipper gewinnt man ein casual 20er-Feld schon
+per reiner Genauigkeit >50 % (P=0.57 bei R=10, d=0); jede Varianz senkt das nur.
+Die Volksregel „wer hinten liegt, muss zocken" ist für casual Runden falsch. Nicht
+die Pool-*Größe* entscheidet (Literatur-Review Punkt 5), sondern die Pool-*Stärke*.
+
+**Vorbehalt:** Getestet gegen ein Softmax-über-Modell-EV-Feld. Eine
+*Anti-Popularitäts*-Strategie (bewusst weg von populären Ergebnissen wie 2:1/1:0,
+wenn das Feld darauf klumpt) ist ein anderer Hebel, den dieses Feldmodell nicht
+erfasst — er bräuchte echte Tippverteilungen (ligenintern, bleiben lokal).
+
+**Aktion:** Backlog #1 praktisch geschlossen — in casual Runden bei EV-max bleiben.
+Offen nur die Anti-Popularitäts-Variante (braucht private Tippdaten).
+
+---
+
 ## Backlog (aktualisiert 2026-08-16)
 
-1. **Standings-abhängige Varianz-Strategie** — Simulation mit dem bestehenden
-   Backtest-Harness + historischen Tabellenständen: ab welchem Rückstand /
-   wie vielen Restspieltagen schlägt varianzreiches Tippen EV-max auf
-   P(Runde gewinnen)? Betrifft Strategie bei *fixen* Wahrscheinlichkeiten,
-   umgeht also das Markt-Ceiling komplett. Null Datenkosten.
-   *Scaffold vorhanden* (`backtest_variance_strategy.py`, 2026-08-16): vorläufig
-   Null-Effekt unter Default-Feld; Feld-Modell (Temperatur T, Größe N) noch
-   gegen empirische Kicktipp-Tippverteilungen zu kalibrieren.
+1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
+   `backtest_variance_strategy.py` mit kalibriertem, heterogenem Feld: Varianz-Tilt
+   schlägt EV-max nur gegen ein *scharfes* Feld; in casual Runden (unsere) hilft er
+   nie → bei EV-max bleiben. Offen nur die **Anti-Popularitäts-Variante** (bewusst
+   weg von populären Ergebnissen) — braucht echte Tippverteilungen (ligenintern,
+   bleiben lokal). Siehe Eintrag oben.
 2. ✅ **football-data.co.uk Pinnacle-Spalten** (erledigt 2026-08-16) —
    `fetch_odds_csv` nutzt jetzt die Closing-Line (PSCH) als Default; der
    DM-Test oben zeigt, dass Closing das Modell signifikant schlägt.
