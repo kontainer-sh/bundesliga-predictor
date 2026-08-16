@@ -538,6 +538,36 @@ Offen nur die Anti-Popularitäts-Variante (braucht private Tippdaten).
 
 ---
 
+## 2026-08-16 — Remis-Bias: untertippt das Modell Unentschieden? (Null-Resultat)
+
+**Frage:** Im Punkteschema zahlt eine korrekte Remis-*Tendenz* 2 Punkte, eine
+Sieg-Tendenz nur 1 — Remis sind doppelt wertvoll. DC-Poisson unterschätzt in der
+Literatur Unentschieden. Tippt EV-max dadurch zu selten Remis und verschenkt Punkte?
+
+**Methode:** Kalibrierung (Ø P(Remis) vs. reale Quote) + Remis-Boost: Diagonale der
+Produktions-Score-Matrix mit δ skalieren, renormieren, EV-max neu, Kicktipp-Punkte
+vergleichen. 1186 Spiele (2022–2025). Repro: `python backtest_draw_bias.py`.
+
+**Ergebnis:**
+- Ø P(Remis) = **0.236** vs. tatsächlich **0.250** — nur minimal unterschätzt (ρ-Korrektur wirkt).
+- Modell tippt Remis in nur **4,9 %** der Spiele.
+
+| δ (Remis-Boost) | Ø Pkt/Spiel | Δ vs 1.0 |
+|---|---|---|
+| **1.0** | **0.816** | ±0 |
+| 1.15 | 0.803 | −0.013 |
+| 1.3 | 0.815 | −0.001 |
+| 1.5 | 0.794 | −0.022 |
+| 2.0 | 0.728 | −0.088 |
+
+**Befund:** δ=1.0 optimal — jeder Remis-Boost verschlechtert. EV-max wägt den
+2-Punkte-Remis-Bonus bereits korrekt gegen die höhere Sieg-Wahrscheinlichkeit ab;
+mehr Remis zu erzwingen kostet auf Nicht-Remis-Spielen mehr, als es auf Remis
+einbringt. Die scheinbare „Remis-Schwäche" (wenig Punkte an Remis-Spielen) ist der
+korrekte EV-max-Trade-off, kein ausnutzbarer Fehler. Kein Modell-Hebel.
+
+---
+
 ## Backlog (aktualisiert 2026-08-16)
 
 1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
