@@ -186,8 +186,26 @@ def _season_code(season: int) -> str:
     return f"{season % 100:02d}{(season + 1) % 100:02d}"
 
 
-def fetch_odds_csv(season: int) -> list[dict]:
-    """Lädt Pinnacle-Quoten + Statistiken von football-data.co.uk, mit Cache."""
+def _odds_val(row: dict, *keys: str) -> float:
+    """Erster parsebarer, positiver Quotenwert aus `keys` (Fallback-Kette)."""
+    for k in keys:
+        try:
+            v = float(row.get(k) or 0)
+        except (ValueError, TypeError):
+            continue
+        if v > 0:
+            return v
+    return 0.0
+
+
+def fetch_odds_csv(season: int, closing: bool = True) -> list[dict]:
+    """Lädt Pinnacle-Quoten + Statistiken von football-data.co.uk, mit Cache.
+
+    closing=True (Default) nutzt die Pinnacle-*Closing*-Line (PSCH/PSCD/PSCA) —
+    die schärfste Benchmark (Markt-Ceiling, siehe EXPERIMENTS.md Literatur-
+    Review 2026-07-14). closing=False nutzt die schwächere Pre-Closing-Spalte
+    (PSH/PSD/PSA). Fallback pro Zeile: Closing → Pre-Closing → generisch.
+    """
     import csv
     import io
 
@@ -210,13 +228,16 @@ def fetch_odds_csv(season: int) -> list[dict]:
     reader = csv.DictReader(io.StringIO(content))
     rows = []
     for row in reader:
-        # Pinnacle-Quoten: PSH (Home), PSD (Draw), PSA (Away)
-        try:
-            psh = float(row.get("PSH") or row.get("PH", 0))
-            psd = float(row.get("PSD") or row.get("PD", 0))
-            psa = float(row.get("PSA") or row.get("PA", 0))
-        except (ValueError, TypeError):
-            psh = psd = psa = 0
+        # Pinnacle-Quoten: Closing (PSC*) bevorzugt, sonst Pre-Closing (PS*),
+        # sonst generisch (P*). Home / Draw / Away.
+        if closing:
+            psh = _odds_val(row, "PSCH", "PSH", "PH")
+            psd = _odds_val(row, "PSCD", "PSD", "PD")
+            psa = _odds_val(row, "PSCA", "PSA", "PA")
+        else:
+            psh = _odds_val(row, "PSH", "PH")
+            psd = _odds_val(row, "PSD", "PD")
+            psa = _odds_val(row, "PSA", "PA")
 
         if psh == 0 or psd == 0 or psa == 0:
             continue
