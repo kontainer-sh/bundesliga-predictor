@@ -459,6 +459,46 @@ auf 0.8 — theoretisch gestützt, aber im Rauschen).
 
 ---
 
+## 2026-08-16 — Headroom der Exakt-Ergebnis-Schicht: lohnen Correct-Score-Quoten?
+
+**Frage:** ~30 % der Kicktipp-Punkte stammen aus exakten Ergebnissen (Punkte-
+Zerlegung: 96/1186 Exakt-Treffer = 8,1 %, 288 Pkt = 29,8 %), und diese Dimension
+bekommt aktuell null Markt-Input — die Score-Verteilung erzeugt
+`odds_to_score_matrix` rein aus 1X2 + O/U-2.5. Wie viel könnten Correct-Score-
+Quoten maximal bringen?
+
+**Methode:** Der Score-Layer kann die Tendenz nicht verbessern (Markt-Job), nur
+das Ergebnis *innerhalb* der committeten Tendenz. Leiter von Decken, 1186 Spiele
+(2022–2025). Repro: `python backtest_score_headroom.py`.
+
+**Ergebnis (Ø Pkt/Spiel):**
+
+| Strategie | Ø/Spiel |
+|---|---|
+| Naiv „immer 2:1" | 0.669 |
+| Aktuell (Modell+Closing) | 0.816 |
+| Beste konst. Scoreline / Tendenz (Hindsight) | 0.831 |
+| Perfektes Ergebnis \| Tendenz fix | 1.606 |
+| Absolut (tatsächliches Ergebnis) | 3.000 |
+
+- Realistischer Headroom (populations-CS-Info): **+0.015 Pkt/Spiel (+18 Pkt über
+  4 Saisons)** — und das ist Hindsight/in-sample, also optimistisch.
+- Absolute Score-Layer-Decke: +0.79 Pkt/Spiel (+937) — aber unerreichbar (setzt
+  das *tatsächliche* Ergebnis voraus, keine Verteilung).
+
+**Befund:** Correct-Score-Quoten lohnen **nicht**. Die große Score-Layer-Decke
+(+0.79) ist fast vollständig *irreduzibles Spiel-Rauschen* — exakte Ergebnisse sind
+jenseits der Verteilung nicht prognostizierbar; keine Quote holt das. Der Teil, den
+CS-Quoten realistisch liefern (populations-typische Score-Form), steckt bereits im
+gut kalibrierten DC-Layer (ECE≈0,034, Calibration-Test 2026-05-16) → nur +0.015 in
+Hindsight, und die OOS-Variante davon (Recalibration 2026-05-10) ging mit −27 bis
+−35 Pkt sogar negativ. Dazu die Datenlage: keine freie historische Pinnacle-CS-
+Quelle, Retail-CS-Märkte hochmargig/verrauscht.
+
+**Aktion:** CS-Quoten-Thread geschlossen — kein verwertbarer Hebel.
+
+---
+
 ## Backlog (aktualisiert 2026-08-16)
 
 1. **Standings-abhängige Varianz-Strategie** — Simulation mit dem bestehenden
@@ -482,3 +522,5 @@ auf 0.8 — theoretisch gestützt, aber im Rauschen).
 
 **Gestrichen:** Bayesianische λ-Schätzung (Egidi/Pauli/Torelli 2018) —
 Begründung im Literatur-Review vom 2026-07-14, Punkt 3.
+**Gestrichen:** Correct-Score-Quoten — Headroom-Analyse 2026-08-16 zeigt
+~0 realistischen Hebel (irreduzibles Score-Rauschen + gut kalibrierter DC-Layer).
