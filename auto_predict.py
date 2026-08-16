@@ -86,12 +86,7 @@ def main():
     import kicktipp as kt
 
     all_matches = kt.load_all_matches(season)
-    # Kein Data-Leakage: laufende 1.-Liga-Saison ab dem getippten Spieltag
-    # ausschließen — identisch zum validierten Backtest-Split (m["season"],
-    # NICHT date.year: sonst fällt die Rückrunde der Vorsaison mit raus).
-    training = [m for m in all_matches
-                if not (m["league"] == "bl1" and m["season"] == season
-                        and m["matchday"] >= md)]
+    training = kt.training_split(all_matches, season, md)
 
     if len(training) < kt.MIN_MATCHES:
         print(f"Zu wenig Trainingsdaten ({len(training)}).")

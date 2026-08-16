@@ -100,6 +100,53 @@ check("Mainz", kt._normalize_team("FSV Mainz 05") == "1. FSV Mainz 05")
 check("Leverkusen", kt._normalize_team("Bayer Leverkusen") == "Bayer 04 Leverkusen")
 check("Heidenheim", kt._normalize_team("1. FC Heidenheim") == "1. FC Heidenheim 1846")
 check("Unbekannt bleibt", kt._normalize_team("Unbekannt FC") == "Unbekannt FC")
+# Aufsteiger 2026/27 — Odds-API-Kurznamen (Regression: fielen sonst auf "Nur Modell")
+check("Elversberg", kt._normalize_team("Elversberg") == "SV 07 Elversberg")
+check("SC Paderborn", kt._normalize_team("SC Paderborn") == "SC Paderborn 07")
+print()
+
+# --- Trainings-Split (Data-Leakage + Regression gegen den date.year-Bug) ---
+print("Trainings-Split:")
+from datetime import datetime
+
+def _mk(mid, season, league, md, year, month):
+    return {"id": mid, "matchday": md, "date": datetime(year, month, 1),
+            "home": "H", "away": "A", "home_goals": 1, "away_goals": 0,
+            "league": league, "season": season}
+
+# Laufende Saison = 2026/27. Die Vorsaison-Rückrunde (2025/26) wird im
+# Kalenderjahr 2026 gespielt — genau daran ist der alte date.year-Filter zerbrochen.
+_ms = [
+    _mk("vor-rueck", 2025, "bl1", 30, 2026, 3),   # Vorsaison-Rückrunde, Jahr 2026
+    _mk("vor-hin",   2025, "bl1", 5,  2025, 9),    # Vorsaison-Hinrunde, Jahr 2025
+    _mk("cur-md1",   2026, "bl1", 1,  2026, 8),    # laufend, Spieltag 1
+    _mk("cur-md3",   2026, "bl1", 3,  2026, 9),    # laufend, Spieltag 3
+    _mk("cur-md7",   2026, "bl1", 7,  2026, 10),   # laufend, Spieltag 7
+    _mk("cur-bl2",   2026, "bl2", 8,  2026, 8),    # laufend, 2. Liga (andere Liga)
+]
+
+def _ids(matches):
+    return {m["id"] for m in matches}
+
+# Spieltag 1: laufende 1.-Liga-Saison komplett raus, alles andere bleibt
+s1 = _ids(kt.training_split(_ms, 2026, 1))
+check("MD1: Vorsaison-Rückrunde bleibt (der Bug!)", "vor-rueck" in s1)
+check("MD1: Vorsaison-Hinrunde bleibt", "vor-hin" in s1)
+check("MD1: 2. Liga (andere Liga) bleibt", "cur-bl2" in s1)
+check("MD1: laufende Saison MD1 raus", "cur-md1" not in s1)
+check("MD1: laufende Saison MD7 raus", "cur-md7" not in s1)
+
+# Spieltag 5: nur laufende 1.-Liga-Spieltage >= 5 raus, MD1/MD3 bleiben
+s5 = _ids(kt.training_split(_ms, 2026, 5))
+check("MD5: laufende MD3 bleibt (3 < 5)", "cur-md3" in s5)
+check("MD5: laufende MD7 raus (7 >= 5)", "cur-md7" not in s5)
+check("MD5: Vorsaison-Rückrunde bleibt", "vor-rueck" in s5)
+
+# Regression: der alte date.year-Filter hätte die Vorsaison-Rückrunde verworfen
+_buggy = _ids([m for m in _ms
+               if not (m["matchday"] >= 1 and m["date"].year >= 2026)])
+check("Alter Bug hätte Vorsaison-Rückrunde verworfen", "vor-rueck" not in _buggy)
+check("Fix behält 324-Äquivalent (mehr als der Bug)", len(s1) > len(_buggy))
 print()
 
 # --- Ergebnis ---

@@ -78,9 +78,7 @@ def build_fixtures(season, remaining, rng):
     max_md = max(m["matchday"] for m in season_bl1)
     split_md = max_md - remaining + 1
 
-    training = [m for m in all_matches
-                if not (m["league"] == "bl1" and m["season"] == season
-                        and m["matchday"] >= split_md)]
+    training = kt.training_split(all_matches, season, split_md)
     if len(training) < kt.MIN_MATCHES:
         raise SystemExit(f"Zu wenig Trainingsdaten ({len(training)}).")
 

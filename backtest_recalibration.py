@@ -57,10 +57,7 @@ def main():
     matches_no_odds = 0
 
     for md in range(1, 35):
-        cutoff = [m for m in season_matches if m["matchday"] < md]
-        prev = [m for m in all_matches
-                if not (m["league"] == "bl1" and m["season"] == TEST_SEASON)]
-        training = prev + cutoff
+        training = kt.training_split(all_matches, TEST_SEASON, md)
         if len(training) < kt.MIN_MATCHES:
             continue
 

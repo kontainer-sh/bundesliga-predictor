@@ -767,9 +767,7 @@ def fit_recalibration(train_seasons: list[int], min_obs: int = 20) -> np.ndarray
             pass
 
         for md in range(1, 35):
-            cutoff = [m for m in season_matches if m["matchday"] < md]
-            prev = [m for m in all_matches if not (m["league"] == "bl1" and m["season"] == season)]
-            training = prev + cutoff
+            training = training_split(all_matches, season, md)
             if len(training) < MIN_MATCHES:
                 continue
 
@@ -854,6 +852,24 @@ def load_all_matches(season: int) -> list[dict]:
     return all_matches
 
 
+def training_split(all_matches: list[dict], season: int, matchday: int,
+                   league: str = "bl1") -> list[dict]:
+    """Trainingsmenge ohne Data-Leakage — die EINZIGE Quelle der Wahrheit.
+
+    Schließt die laufende `league`-Saison ab `matchday` aus und behält alles
+    andere (Vorsaisons, andere Liga, bereits gespielte Spieltage < matchday).
+    Backtest UND Produktion (auto_predict, cmd_predict) rufen ausschließlich
+    diese Funktion auf, damit die Split-Regel nicht erneut auseinanderdriftet.
+
+    WICHTIG: Split über m["season"], NICHT über m["date"].year — sonst fällt
+    die Rückrunde der Vorsaison (gleiches Kalenderjahr) fälschlich mit heraus
+    (Bug bis 2026-08, siehe EXPERIMENTS.md / git-History).
+    """
+    return [m for m in all_matches
+            if not (m["league"] == league and m["season"] == season
+                    and m["matchday"] >= matchday)]
+
+
 def tendency_str(h: int, a: int) -> str:
     if h > a:
         return "Heimsieg"
@@ -874,9 +890,7 @@ def cmd_predict(args):
     all_matches = load_all_matches(args.season)
 
     # Nur Spiele vor aktuellem Spieltag dieser Saison als Training
-    training = [m for m in all_matches
-                if not (m["matchday"] >= args.matchday and
-                        m["date"].year >= args.season)]
+    training = training_split(all_matches, args.season, args.matchday)
 
     if len(training) < MIN_MATCHES:
         print(f"Fehler: Nur {len(training)} Trainingsmatches – zu wenig.")
@@ -979,9 +993,7 @@ def cmd_calibration(args):
     skipped = 0
 
     for md in range(from_md, to_md + 1):
-        cutoff = [m for m in season_matches if m["matchday"] < md]
-        prev = [m for m in all_matches if m not in season_matches]
-        training = prev + cutoff
+        training = training_split(all_matches, season, md)
         if len(training) < MIN_MATCHES:
             continue
 
@@ -1334,9 +1346,7 @@ def cmd_backtest(args):
 
     for md in range(from_md, to_md + 1):
         # Training: alles VOR diesem Spieltag
-        cutoff_matches = [m for m in season_matches if m["matchday"] < md]
-        prev_season = [m for m in all_matches if m not in season_matches]
-        training = prev_season + cutoff_matches
+        training = training_split(all_matches, season, md)
 
         if len(training) < MIN_MATCHES:
             print(f"  Spieltag {md:2d}: Übersprungen (nur {len(training)} Trainingsmatches)")

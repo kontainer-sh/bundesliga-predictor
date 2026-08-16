@@ -53,10 +53,7 @@ def run_season(test_season: int):
 
     rows = []
     for md in range(1, 35):
-        cutoff = [m for m in season_matches if m["matchday"] < md]
-        prev = [m for m in all_matches
-                if not (m["league"] == "bl1" and m["season"] == test_season)]
-        training = prev + cutoff
+        training = kt.training_split(all_matches, test_season, md)
         if len(training) < kt.MIN_MATCHES:
             continue
         md_matches = [m for m in season_matches if m["matchday"] == md]
