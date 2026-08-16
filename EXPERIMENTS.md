@@ -423,6 +423,42 @@ PSH → generisch; `closing=False` erreichbar). Achtung: alle Backtest-Zahlen vo
 
 ---
 
+## 2026-08-16 — λ-Sweep gegen Closing: bleibt ODDS_WEIGHT=0.7 optimal?
+
+**Frage:** Verschiebt die Umstellung auf die (bessere) Closing-Line das optimale
+Mischgewicht Modell/Odds weg von 0.7? Trigger: der DM-Test zeigt Closing > Modell.
+
+**Methode:** Walk-forward λ-Sweep (0.0–1.0, Schritt 0.1) auf Kicktipp-Punkten,
+918 Spiele (2022–2024), Closing-Odds. Paired Bootstrap (bestes λ vs. 0.7).
+Repro: `python backtest_lambda_sweep.py`.
+
+**Ergebnis:**
+
+| λ (Odds-Gewicht) | Ø/Spiel | Δ vs 0.7 |
+|---|---|---|
+| 0.5 | 0.813 | −3 |
+| 0.7 (Produktion) | 0.816 | ±0 |
+| 0.8 | 0.824 | +7 |
+| 0.9 / 1.0 | 0.827 | +10 |
+
+Optimum bei λ=0.9–1.0, aber best−0.7 = +0.011 Pkt/Spiel, 95%-CI [−0.012, +0.035],
+**p = 0.398** — nicht signifikant. Kurve von 0.2–1.0 praktisch flach; bestes λ pro
+Saison instabil (0.7 / 1.0 / 0.9).
+
+**Befund:** Das Optimum driftet richtungskonsistent zum DM-Befund nach oben (mehr
+Odds-Gewicht, weil Closing das Modell schlägt), aber der Vorteil bleibt im
+Rauschen — ODDS_WEIGHT=0.7 ist *nicht* signifikant geschlagen. Der Trainingsfilter-
+Fix ist irrelevant für λ (Sweep nutzte immer den korrekten season-Split).
+
+**Vorbehalt:** Sweep auf CSV-Closing; die Produktion tippt mit den-odds-api-Live-
+Quoten. Das produktions-optimale λ ist ohne gespeicherte Live-Feed-Historie nicht
+direkt messbar — dieser Sweep ist der beste verfügbare Proxy. 25/26 nicht im Test.
+
+**Aktion:** Keine. ODDS_WEIGHT bleibt 0.7 (verteidigbar; falls überhaupt, minimal
+auf 0.8 — theoretisch gestützt, aber im Rauschen).
+
+---
+
 ## Backlog (aktualisiert 2026-08-16)
 
 1. **Standings-abhängige Varianz-Strategie** — Simulation mit dem bestehenden
