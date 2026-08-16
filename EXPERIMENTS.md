@@ -304,20 +304,145 @@ des erreichbaren Effekts ist nach diesem Test stark eingegrenzt — ECE-D=0.034
 
 ---
 
-## Backlog (aus Paper-Recherche, ungetestet)
+## 2026-07-14 — Literatur-Review: Schlägt irgendetwas Pinnacle-Closing-Odds? (Deep Research)
 
-Methoden, die in der Literatur DC schlagen und mit unseren Daten machbar wären:
+**Frage:** Gibt es publizierte Evidenz (2020–2026), dass ein öffentliches Modell
+oder eine Datenquelle Pinnacle-Closing-Odds für 1X2 oder exakte Ergebnisse
+systematisch schlägt — und welche Backlog-Punkte lohnen sich danach noch?
 
-1. **Isotone 1X2-Recalibration** (Wilkens 2026) — andere Mathematik als die
-   verworfene per-Cell-Variante. Trainiert separate isotone Regressionen für
-   P(home), P(draw), P(away) gegen empirische Häufigkeiten. Der nächste sinnvolle
-   Recal-Versuch.
-2. **Score-driven Team-Stärken (GAS)** (Koopman & Lit 2015/2019) — dynamische
-   Updates aus Likelihood-Score statt fixer 300-Tage-Halbwertszeit. Geschätzter
-   Aufwand 2-4 Tage.
-3. **pi-Rating** (Constantinou 2013) — Home/Away-Ratings, Update über Tor-
-   Differenz. Sehr leichtgewichtig (~50 Zeilen). Als alternativer Modell-Layer
-   neben DC denkbar.
-4. **Bayesianische λ-Schätzung** (Egidi/Pauli/Torelli 2018) — ersetzt fixes 70/30
-   durch gelernte konvexe Kombination. Methodisch eleganter, praktischer
-   Mehrwert vermutlich klein.
+**Methode:** Multi-Agent-Recherche über 5 Suchwinkel (Markt-Effizienz,
+Exact-Score-SOTA, Contest-/Pool-Strategie, Kicktipp-spezifisch, Datenquellen).
+20 Quellen gefetcht, 98 Claims extrahiert, Top 25 adversarial verifiziert
+(3-Voter-Panel): 21 bestätigt, 4 widerlegt.
+
+**Kernbefunde:**
+
+1. **Kein verifizierter Closing-Line-Edge im Fußball.** Alle publizierten
+   „Edges" (Wilkens 2026, Boshnakov et al. 2017, Egidi et al. 2018) wurden
+   nur gegen weiche/durchschnittliche oder Nicht-Closing-Quoten gezeigt.
+   Hubáček & Šír ([IJF 39(2), 2023](https://arxiv.org/abs/2010.12508))
+   verifizieren, dass Pinnacle-Closing-Odds auf jedem Wahrscheinlichkeits-
+   niveau unverzerrt sind; ihr eigener Profit entsteht durch *Dekorrelation*
+   vom Markt (Arbitrage gegen die Buchmacher-Marge) — ein Mechanismus ohne
+   Kicktipp-Analogon. Bestätigt unabhängig unser ~20–30-Pkt-Ceiling.
+
+2. **Wilkens 2026 (isotone Recal): herabgestuft.** Die isotone Recalibration
+   ist im Paper für fast den gesamten Profit verantwortlich (~1% → ~10% ROI),
+   aber der Gewinn stammt aus der Korrektur eines *unkalibrierten rohen
+   xG-Skellam-Modells* gegen Durchschnittsquoten von ~15 Soft-Buchmachern —
+   „Pinnacle" kommt im Paper nicht vor. Unsere quoten-verankerte Matrix ist
+   bereits kalibriert (ECE < 0.04, siehe Calibration-Test 2026-05-16).
+   Erwartung: Null-Resultat. Der Headline-ROI-Claim des Papers hat die
+   adversariale Verifikation nicht überlebt (1-2); das Paper selbst nennt
+   seine Returns „an upper bound … rather than readily realisable profits".
+
+3. **Egidi/Pauli/Torelli 2018 (Bayes-λ): gestrichen ohne eigenen Test.**
+   Die Posteriors der Mischgewichte sind [im Paper selbst](https://arxiv.org/pdf/1802.08848)
+   unidentifiziert (50%-Bars ≈ Prior, über 2.754 BL-Spiele 2007–2016) —
+   spiegelt exakt unser λ-Sweep-Null (p=0.24). Das Modell verliert zudem in
+   allen vier getesteten Ligen gegen quoten-implizite Wahrscheinlichkeiten
+   (Bundesliga: 0.4010 vs. 0.4100 Shin). Die Profit-Claims des Papers:
+   nur gegen 7 Soft-Buchmacher, ±1-s.e.-Bars bis Null.
+
+4. **Exact-Score-SOTA: kein Upgrade über die aktuelle Matrix.** Zehn-Saison-
+   Benchmark ([penaltyblog 2025](https://pena.lt/y/2025/03/10/which-model-should-you-use-to-predict-football-matches/),
+   Eredivisie, RPS): zeitgewichtetes Dixon-Coles schlägt bivariates Poisson
+   (schlechtestes Modell im Feld), Zero-Inflated, NegBin und Weibull-Copula.
+   Boshnakov et al. (IJF 2017) profitieren nur auf 1X2/Totals gegen
+   Soft-Durchschnittsquoten; der Claim „Weibull-Counts fitten Scores besser
+   als Poisson" wurde widerlegt (1-2).
+
+5. **Spielstrategie ist der einzige theoretisch fundierte, ungetestete Hebel.**
+   Contest-Theorie: P(Runde gewinnen) ≠ erwartete eigene Punkte
+   ([Clair & Letscher 2007](https://www.stat.berkeley.edu/~aldous/157/Papers/clair.pdf),
+   Operations Research). In kleinen Pools konvergiert optimales Spiel aber
+   gegen EV-max — Genauigkeit der Wahrscheinlichkeiten schlägt dort
+   Opponent-Modeling. Standings-abhängige Varianz-Modulation
+   ([Tsetlin/Gaba/Winkler 2004](https://link.springer.com/article/10.1023/B:RISK.0000038941.44379.82),
+   J. Risk & Uncertainty): moderater Rückstand spät in der Saison →
+   varianzreichere/unpopuläre exakte Ergebnisse; aussichtsloser Rückstand →
+   *nicht* zocken (Konzessions-Resultat, empirisch Genakos & Pagliero);
+   Führung → Feld spiegeln / EV-max. Die Volksregel „wer hinten liegt, muss
+   zocken" ist damit in beide Richtungen falsch. Keine publizierte Analyse
+   des Kicktipp-1/2/3-Schemas gefunden — die 2:1-vs-1:0-Frage ist nur per
+   eigener Simulation beantwortbar.
+
+6. **Datenquellen:** football-data.co.uk liefert kostenlos Pinnacle
+   Pre-Closing- (PSH/PSD/PSA) *und* Closing-Spalten (PSCH/PSCD/PSCA), 1X2
+   ab mind. 2018/19 — Cross-Check/Backfill für The Odds API. Achtung
+   (widerlegt 0-3): Pre-Closing ≠ Opening; echte Opening→Closing-Drift
+   braucht The Odds API-Snapshots (5-Min-Raster seit 09/2022, Credit-teuer)
+   oder TheStatsAPI (~$50/Monat). Keine verifizierte Evidenz, dass Drift
+   über die Closing-Line hinaus Information trägt. Keine freie Quelle für
+   historische Pinnacle-Correct-Score-Quoten gefunden.
+
+**Aktion:** Backlog neu priorisiert (siehe unten). Bayes-λ gestrichen,
+isotone Recal herabgestuft, Varianz-Strategie-Simulation neu auf #1.
+
+---
+
+## 2026-08-16 — Diebold-Mariano-Test: Modell vs. Pinnacle-Closing auf RPS
+
+**Frage:** Schlägt Pinnacle-Closing das DC-Modell auf einem *propren* Scoring
+signifikant — und warum zeigt das Kicktipp-Punktemaß keinen Unterschied?
+
+**Anlass:** Ein Modell-vs-Odds-Vergleich auf Kicktipp-Punkten wirkte „gleichauf".
+Zwei Ursachen: (1) `fetch_odds_csv` benchmarkte gegen Pinnacle *Pre-Closing* (PSH)
+statt Closing (PSCH) — behoben, Closing ist jetzt Default. (2) Kicktipp-Punkte sind
+ein unpropres Scoring; die Exakt-Ergebnis-Form ziehen Modell und Odds aus derselben
+`odds_to_score_matrix`, was den echten 1X2-Edge des Marktes verwischt.
+
+**Methode:** RPS (proper, geordnetes 1X2) je Spiel für Modell und Closing, 1186
+Spiele (2022–2025), season-basierter Split (`training_split`). Diebold-Mariano
+(Lag 0 — Spiele unkorreliert) auf d = RPS_Modell − RPS_Closing; Paired Bootstrap
+(n=10.000) als verteilungsfreier Cross-Check. Repro: `python backtest_dm_test.py`.
+
+**Ergebnis:**
+
+| Metrik | RPS Ø (niedriger = besser) |
+|---|---|
+| Modell (DC) | 0.2008 |
+| Pinnacle Closing | 0.1972 |
+| Kombiniert λ=0.7 | 0.1971 |
+
+DM = +2.07, **p = 0.039**, Bootstrap-95%-CI [+0.0003, +0.0071] (schließt 0 aus).
+Zum Kontrast Kicktipp-Punkte Ø/Spiel: Modell 0.810 vs. Closing 0.819 — statistisch
+*nicht* unterscheidbar, Ranking kippt saisonweise.
+
+**Befund:** Closing schlägt das Modell auf 1X2 **signifikant** — der Markt-Edge ist
+real, aber so klein, dass ihn nur ein propres Maß sichtbar macht; auf Kicktipp-
+Punkten verschwindet er. Erstmals das ~20–30-Pkt-Ceiling mit formalem
+Signifikanztest untermauert. Kombiniert ≈ Closing: das Modell trägt über die
+Closing-Line hinaus ~nichts zur 1X2-Prognose bei (Markteffizienz). Ausnahme:
+Saison 25/26 schlug das Modell Closing auch auf RPS (0.1930 vs 0.1981) —
+verrauschte, für alle Tipper überdurchschnittlich treffsichere Saison.
+
+**Aktion:** `fetch_odds_csv` nutzt jetzt Closing (PSCH) als Default (Fallback →
+PSH → generisch; `closing=False` erreichbar). Achtung: alle Backtest-Zahlen vor
+2026-08 wurden gegen die schwächere Pre-Closing-Line gemessen — Reruns weichen ab.
+
+---
+
+## Backlog (aktualisiert 2026-08-16)
+
+1. **Standings-abhängige Varianz-Strategie** — Simulation mit dem bestehenden
+   Backtest-Harness + historischen Tabellenständen: ab welchem Rückstand /
+   wie vielen Restspieltagen schlägt varianzreiches Tippen EV-max auf
+   P(Runde gewinnen)? Betrifft Strategie bei *fixen* Wahrscheinlichkeiten,
+   umgeht also das Markt-Ceiling komplett. Null Datenkosten.
+   *Scaffold vorhanden* (`backtest_variance_strategy.py`, 2026-08-16): vorläufig
+   Null-Effekt unter Default-Feld; Feld-Modell (Temperatur T, Größe N) noch
+   gegen empirische Kicktipp-Tippverteilungen zu kalibrieren.
+2. ✅ **football-data.co.uk Pinnacle-Spalten** (erledigt 2026-08-16) —
+   `fetch_odds_csv` nutzt jetzt die Closing-Line (PSCH) als Default; der
+   DM-Test oben zeigt, dass Closing das Modell signifikant schlägt.
+3. **Isotone 1X2-Recalibration** (Wilkens 2026) — nur noch als billiger
+   Bestätigungstest (isotoner Fit auf Rolling-Window), erwartetes Ergebnis:
+   Null (siehe Literatur-Review Punkt 2). Schließt den Punkt so oder so.
+4. **Score-driven Team-Stärken (GAS)** (Koopman & Lit 2015/2019) und
+   **pi-Rating** (Constantinou 2013) — bleiben als Modell-Layer-Ideen,
+   aber Priorität gesenkt: das ~20–30-Pkt-Ceiling (λ-Sweep, EV-Gap-Test,
+   Literatur-Review Punkt 1) deckelt den Nutzen jeder DC-Verbesserung.
+
+**Gestrichen:** Bayesianische λ-Schätzung (Egidi/Pauli/Torelli 2018) —
+Begründung im Literatur-Review vom 2026-07-14, Punkt 3.
