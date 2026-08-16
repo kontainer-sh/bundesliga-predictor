@@ -86,8 +86,12 @@ def main():
     import kicktipp as kt
 
     all_matches = kt.load_all_matches(season)
+    # Kein Data-Leakage: laufende 1.-Liga-Saison ab dem getippten Spieltag
+    # ausschließen — identisch zum validierten Backtest-Split (m["season"],
+    # NICHT date.year: sonst fällt die Rückrunde der Vorsaison mit raus).
     training = [m for m in all_matches
-                if not (m["matchday"] >= md and m["date"].year >= season)]
+                if not (m["league"] == "bl1" and m["season"] == season
+                        and m["matchday"] >= md)]
 
     if len(training) < kt.MIN_MATCHES:
         print(f"Zu wenig Trainingsdaten ({len(training)}).")
@@ -111,14 +115,22 @@ def main():
         f"|---|---|---|---|---|",
     ]
 
+    n_known = 0
+    n_odds = 0
+    missing_odds = []
     for f in fixtures:
         home, away = f["home"], f["away"]
         if home not in model["attack"] or away not in model["attack"]:
             lines.append(f"| {home} – {away} | ? | — | Team unbekannt | — |")
             continue
 
+        n_known += 1
         th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
         has_odds = kt._find_odds(live_odds, home, away) is not None
+        if has_odds:
+            n_odds += 1
+        else:
+            missing_odds.append(f"{home} – {away}")
         source = "Modell + Odds" if has_odds else "Nur Modell"
         tend = kt.tendency_str(th, ta)
         lines.append(f"| {home} – {away} | **{th}:{ta}** | {ev:.3f} | {tend} | {source} |")
@@ -126,6 +138,17 @@ def main():
     lines.append("")
     tips_file.write_text("\n".join(lines), encoding="utf-8")
     print(f"Tipps geschrieben: {tips_file}")
+
+    # Odds-Abdeckung überwachen — deckt stille Namens-Mismatches (Aufsteiger)
+    # oder einen abgelaufenen API-Key auf. ::warning:: erscheint im Actions-Log.
+    if not live_odds:
+        print("::warning::Keine Live-Odds geladen (ODDS_API_KEY fehlt oder "
+              "API-Fehler) — Tipps rein modellbasiert.")
+    else:
+        print(f"Odds-Abdeckung: {n_odds}/{n_known} Spiele")
+        if n_odds < n_known:
+            print(f"::warning::Odds-Abdeckung nur {n_odds}/{n_known} — ohne "
+                  f"Quoten (Namens-Mapping prüfen?): {', '.join(missing_odds)}")
 
     # HTML für GitHub Pages generieren
     _generate_html(md, season, fixtures, model, live_odds, info["date"])
