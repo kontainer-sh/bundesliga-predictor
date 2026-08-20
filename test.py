@@ -102,7 +102,23 @@ check("Heidenheim", kt._normalize_team("1. FC Heidenheim") == "1. FC Heidenheim 
 check("Unbekannt bleibt", kt._normalize_team("Unbekannt FC") == "Unbekannt FC")
 # Aufsteiger 2026/27 — Odds-API-Kurznamen (Regression: fielen sonst auf "Nur Modell")
 check("Elversberg", kt._normalize_team("Elversberg") == "SV 07 Elversberg")
+check("SV Elversberg (Kicktipp/Odds-Variante)",
+      kt._normalize_team("SV Elversberg") == "SV 07 Elversberg")
 check("SC Paderborn", kt._normalize_team("SC Paderborn") == "SC Paderborn 07")
+check("Schalke", kt._normalize_team("Schalke") == "FC Schalke 04")
+
+# Aktueller BL1-Kader 2026/27 (OpenLigaDB-Namen) — muss identity-safe sein, damit
+# der Odds-Join greift, wenn die Quelle den kanonischen Namen nutzt. Bei jedem
+# Aufsteiger-Wechsel pflegen: erzwingt den saisonalen Mapping-Check (Betrieb).
+BL1_2026_27 = [
+    "FC Bayern München", "Borussia Dortmund", "Bayer 04 Leverkusen", "RB Leipzig",
+    "Eintracht Frankfurt", "SC Freiburg", "TSG Hoffenheim", "1. FC Union Berlin",
+    "VfB Stuttgart", "SV Werder Bremen", "1. FSV Mainz 05", "FC Augsburg",
+    "Borussia Mönchengladbach", "1. FC Köln", "Hamburger SV", "FC Schalke 04",
+    "SC Paderborn 07", "SV 07 Elversberg",
+]
+for _t in BL1_2026_27:
+    check(f"identity-safe: {_t}", kt._normalize_team(_t) == _t)
 print()
 
 # --- Trainings-Split (Data-Leakage + Regression gegen den date.year-Bug) ---
