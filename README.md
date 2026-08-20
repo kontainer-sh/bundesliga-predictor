@@ -11,7 +11,7 @@ Kombiniert ein **Dixon-Coles-Modell** (Teamstärke aus historischen Ergebnissen)
 | Modus | Punkte | Ø / Spiel |
 |---|---|---|
 | Nur Modell | 211 | 0.781 |
-| Modell + Quoten | **231** | **0.856** |
+| Modell + Quoten | **225** | **0.833** |
 
 Punkteschema: Tendenz 1, Tordifferenz/Remis 2, Exakt 3 (konfigurierbar im Code).
 
@@ -91,7 +91,7 @@ Die Parameter werden per **Maximum-Likelihood-Schätzung** auf historischen Erge
 
 #### 2. Pinnacle-Quoten (70% Gewicht)
 
-Wettquoten des Buchmachers Pinnacle (bekannt für die schärfsten Linien am Markt) werden in eine Score-Matrix umgerechnet:
+Die **Closing-Quoten** des Buchmachers Pinnacle (bekannt für die schärfsten Linien am Markt — die Schlusslinie kurz vor Anpfiff gilt als effizienteste öffentlich verfügbare Prognose) werden in eine Score-Matrix umgerechnet:
 
 1. **Overround entfernen**: Die impliziten Wahrscheinlichkeiten P(H), P(D), P(A) werden aus den Dezimalquoten extrahiert und auf 100% normalisiert.
 2. **Poisson-Fit**: λ_home und λ_away werden so gewählt, dass die resultierende Poisson-Verteilung die H/D/A-Wahrscheinlichkeiten möglichst gut reproduziert (Minimierung der KL-Divergenz).
@@ -142,22 +142,27 @@ Es zeigt sich eine moderate Überdispersion (~12–15 %), die bei der Stichprobe
 | Remis-Boost | -13 Pkt — Modell optimiert schon korrekt |
 | Score-Matrix Recalibration | -33 Pkt — Bias-Muster instabil über Saisons |
 
-### Statistische Validierung (Mai 2026)
+### Statistische Validierung (Mai / August 2026)
 
-Drei diagnostische Tests über 918 BL1-Spiele (Saisons 2022/23–2024/25), um den
-Mehrwert des DC-Modells gegenüber reiner Markt-Replikation (λ=1.0) zu prüfen:
+Vier Tests zum Mehrwert des DC-Modells gegenüber reiner Markt-Replikation (λ=1.0).
+Die ersten drei sind diagnostisch über 918 BL1-Spiele (Saisons 2022/23–2024/25);
+der Diebold-Mariano-Test läuft über 1186 Spiele gegen die Pinnacle-**Closing**-Line:
 
 | Test | Befund |
 |---|---|
 | **Disagreement-Test** (Paired Bootstrap nur auf Spielen, bei denen Modell ≠ Quoten tippen) | Kein signifikanter Edge: λ=0.7 → p=0.72, λ=0.3 → p=0.59. Der scheinbare λ=0.3-Vorteil aus dem λ-Sweep ist ein Single-Season-Artefakt. |
 | **EV-Gap-Sensitivität** (binweise Auswertung nach EV(bester Tipp) − EV(zweitbester)) | 88.7% aller Disagreements liegen bei Gap < 0.01 Pkt. Bei Gap ≥ 0.04 stimmen Modell und Quoten zu 100% überein. Pro Bin keine konsistente Richtung des Δ. |
 | **Calibration-Test** (Brier, LogLoss, ECE für 1X2/Over/BTTS) | Score-Matrix ist bereits gut kalibriert (ECE < 0.04). Quoten sind schärfer, DC besser kalibriert; der 70/30-Mix halbiert die ECE-Lücke. Im Kicktipp-Argmax-Regime praktisch unsichtbar. |
+| **Diebold-Mariano-Test** (RPS, *propres* Scoring, 1186 Spiele 2022–2025, Modell vs. Pinnacle-Closing) | Auf 1X2 schlägt die **Closing-Line das Modell signifikant**: RPS 0.1972 vs. 0.2008, DM = +2.07, **p = 0.039** (Bootstrap-CI schließt 0 aus). Auf Kicktipp-Punkten verschwindet der Unterschied (Ø 0.810 vs. 0.819, n.s.) — das improper Punktemaß kann ihn nicht auflösen. |
 
-**Interpretation:** Der DC-Layer trägt zu Kicktipp-Punkten keinen statistisch
-nachweisbaren Mehrwert über die Quoten hinaus — er bleibt aber als
-*Fallback-Pfad* erhalten: wenn die Odds-API ausfällt oder ein Spiel nicht
-abgedeckt ist, übernimmt automatisch das DC-Modell allein (`kicktipp.py:822-830`).
-Details und Reproduktion: [EXPERIMENTS.md](EXPERIMENTS.md).
+**Interpretation:** Auf dem (impropren) Kicktipp-Punkteschema ist zwischen DC-Layer
+und reinen Quoten kein Unterschied nachweisbar — das war der Stand von Mai 2026. Der
+Diebold-Mariano-Test präzisiert das: Es ist *kein* symmetrisches Remis. Auf einem
+propren Maß (RPS) ist die Pinnacle-Closing-Line dem Modell **signifikant überlegen**;
+der DC-Layer holt den Markt nicht ein, er repliziert ihn bestenfalls. Der praktische
+Wert des DC-Layers ist damit primär der *Fallback-Pfad*: fällt die Odds-API aus oder
+ist ein Spiel nicht abgedeckt, übernimmt automatisch das DC-Modell allein
+(`kicktipp.py:851-852`). Details und Reproduktion: [EXPERIMENTS.md](EXPERIMENTS.md).
 
 ## Theoretische Grenzen
 
@@ -165,14 +170,19 @@ Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
 
 ```
 Immer 2:1 tippen (uninformiert):        ~192 Pkt
-Unser Modell (mit Quoten):              ~231 Pkt
-Poisson-Ceiling (aus H/D/A-Quoten):    ~232 Pkt
+Unser Modell (mit Quoten):               225 Pkt
+Poisson-Ceiling (aus H/D/A-Closing):     231 Pkt
 Geschätztes wahres Ceiling:             ~237–252 Pkt
 Perfektes Oracle:                        810 Pkt
 ```
 
-Das **Poisson-Ceiling** (232 Pkt) nutzt dieselbe Poisson-Rekonstruktion aus H/D/A-Quoten wie
-unser Modell. Unser Modell schöpft dieses Ceiling fast vollständig aus (231 von 232).
+Das **Poisson-Ceiling** (231 Pkt) nutzt dieselbe Poisson-Rekonstruktion aus den
+H/D/A-Closing-Quoten wie unser Modell. Unser Modell schöpft dieses Ceiling zum größten
+Teil aus (225 von 231 ≈ 97%). Der 6-Punkte-Rest ist im Wesentlichen Einzelsaison-Rauschen
+des impropren Punktemaßes: Beim Wechsel von der Pre-Closing- auf die Closing-Line verschob
+sich das Poisson-Ceiling selbst kaum (232 → 231), die realisierten Modellpunkte schwankten
+dagegen von 231 auf 225 — genau die saisonweise Streuung, die der Diebold-Mariano-Test oben
+quantifiziert. Robust bleibt: Modell und Markt liegen auf Kicktipp-Punkten gleichauf.
 
 Das **wahre Ceiling** mit Pinnacles internem Copula-Modell (volle Score-Verteilung aus Correct
 Score-Quoten) liegt jedoch höher. Correct Score-Quoten würden nicht die Tendenz-Trefferquote
@@ -180,9 +190,10 @@ verbessern (die kommt bereits aus H/D/A), sondern die Wahl des exakten Ergebniss
 der richtigen Tendenz — also mehr 3-Punkt- und 2-Punkt-Treffer statt 1-Punkt-Treffer.
 Grobe Abschätzung: +5–20 Punkte, also Ceiling bei ~237–252.
 
-Unser Modell nutzt damit **~70–85% des geschätzten wahren Spielraums**. Ohne Correct
+Unser Modell nutzt damit **~55–75% des geschätzten wahren Spielraums**. Ohne Correct
 Score-Quoten (nicht kostenlos verfügbar) lässt sich das nicht genauer bestimmen.
-Die Berechnung basiert auf einer einzelnen Saison (270 Spiele).
+Die Berechnung basiert auf einer einzelnen Saison (270 Spiele) und ist auf dem
+Kicktipp-Punkteschema entsprechend verrauscht.
 
 In einer 20er-Kicktipp-Liga: Ø Platz 4, ~28% Titelchance, ~95% obere Hälfte.
 
