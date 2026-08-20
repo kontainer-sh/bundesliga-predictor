@@ -643,6 +643,62 @@ Stübinger et al. 2019 RF-„Edge" (~1,58 %/Spiel; 1-2, kein Signifikanz-/Sharp-
 
 ---
 
+## 2026-08-20 — Exact-Score-Proxy aus Asian Handicap + Totals (verworfen)
+
+**Hypothese:** Die 1X2-Rekonstruktion (`odds_to_score_matrix`, 2-Param-Poisson,
+2 Freiheitsgrade) lässt die Score-Verteilung unterbestimmt. Pinnacle-Closing
+**Asian Handicap** (fixiert die Tordifferenz) und **Over/Under** (fixiert die
+Gesamttore) könnten die exakte Ergebnisverteilung schärfer pinnen → mehr 3-/2-Punkte-
+Treffer, Hebung des ~231-Ceilings Richtung theoretischer 237–252 (offene Frage #3
+aus dem Deep-Research-Nachfassen desselben Tages).
+
+**Datenlage:** football-data.co.uk liefert alle Pinnacle-*Closing*-Spalten
+offline: 1X2 (PSCH/PSCD/PSCA), O/U 2.5 (PC>2.5/PC<2.5), Asian Handicap
+(AHCh + PCAHH/PCAHA). Kein Team-Mapping nötig — Ergebnis steht in derselben Zeile.
+
+**Stufe 1 — Diagnose** (`backtest_score_markets.py`, 1.985 Spiele 2019–2025):
+Trägt AH/OU Info über die 1X2-Poisson-Matrix hinaus? Test = Brier(Markt) vs.
+Brier(1X2-Modell) auf realen Ausgängen.
+- **Asian Handicap (Tordifferenz):** 1X2-Matrix trifft die AH-Preise auf **MAE
+  1,4pp** und ist auf realen Ausgängen **nicht unterscheidbar** vom Markt
+  (Brier 0.2495 vs. 0.2478, Δ n.s.). AH-Linien sind bewusst um ~0.5 balanciert →
+  fast Münzwurf, kaum marginale Info jenseits 1X2.
+- **Over/Under 2.5 (Gesamttore):** Markt schlägt signifikant (Brier 0.2282 vs.
+  0.2437); das 1X2-Modell **untertippt Overs um 9,6pp**. Info existiert — aber auf
+  der für Kicktipp weniger relevanten Achse.
+
+**Stufe 2 — Definitiv-Test** (`backtest_score_proxy.py`, 915 Spiele mit vollem
+Closing): Dixon-Coles-Fit mit ρ, gemeinsam auf 1X2+O/U+AH, EV-optimaler Tipp,
+gepaart gegen 1X2-only.
+
+| Rekonstruktion | Pkt | Ø/Spiel |
+|---|---|---|
+| A  1X2-only | 716 | 0.7825 |
+| B  1X2 + O/U | 732 | 0.8000 |
+| C  1X2 + O/U + AH | 727 | 0.7945 |
+
+- Δ B−A (O/U) = +16 Pkt (+0.0175), **n.s.** [−0.014, +0.049]
+- Δ C−B (AH)  = −5 Pkt (−0.0055), **n.s.**
+- **Δ C−A (Proxy gesamt) = +11 Pkt (+0.0120), n.s.** [−0.036, +0.061]
+
+Trotz hoher Tipp-Churn (A→B 49,7 %, B→C 38,7 % geänderte Tipps) ist der Netto-Effekt
+statistisch null — die Änderungen fallen in Situationen mit verschwindendem EV-Gap
+(deckt sich mit EV-Gap-Test 2026-05-16: 88,7 % der Disagreements bei Gap <0.01).
+
+**Befund / Aktion:** Der Exact-Score-Proxy bringt auf Kicktipp-Punkten **keinen
+signifikanten Gewinn**; die AH-Achse (die relevante) trägt nichts über 1X2 hinaus.
+Damit ist die ~231-Ceiling-Frage *mechanistisch* beantwortet: nicht CS-Info fehlt,
+sondern 1X2 pinnt die Tordifferenz bereits so scharf wie der AH-Markt. **Verworfen.**
+Der Punkt-Schätzer (+11) liegt am unteren Rand des theoretischen +5–20-Headrooms, ist
+aber nicht von 0 unterscheidbar und rechtfertigt keine fragile Fit-Maschinerie.
+Nebenbefund: O/U ist auf *Closing* neutral (n.s.), nicht −11 wie das ältere
+Pre-Closing-Ergebnis in der README-Tabelle — Reruns weichen ab (siehe 2026-08-16).
+
+**Reproduktion:** `python backtest_score_markets.py` (Diagnose) ·
+`python backtest_score_proxy.py` (Definitiv-Test).
+
+---
+
 ## Backlog (aktualisiert 2026-08-20)
 
 1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
@@ -666,4 +722,6 @@ Stübinger et al. 2019 RF-„Edge" (~1,58 %/Spiel; 1-2, kein Signifikanz-/Sharp-
 **Gestrichen:** Bayesianische λ-Schätzung (Egidi/Pauli/Torelli 2018) —
 Begründung im Literatur-Review vom 2026-07-14, Punkt 3.
 **Gestrichen:** Correct-Score-Quoten — Headroom-Analyse 2026-08-16 zeigt
-~0 realistischen Hebel (irreduzibles Score-Rauschen + gut kalibrierter DC-Layer).
+~0 realistischen Hebel (irreduzibles Score-Rauschen + gut kalibrierter DC-Layer);
+zusätzlich direkt widerlegt 2026-08-20 (Exact-Score-Proxy aus AH+Totals, C−A n.s.,
+`backtest_score_proxy.py`).

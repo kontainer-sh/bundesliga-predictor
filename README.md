@@ -137,7 +137,8 @@ Es zeigt sich eine moderate Überdispersion (~12–15 %), die bei der Stichprobe
 | xG (Expected Goals) | ±0 — schon in den Quoten enthalten |
 | Negative Binomialverteilung | ±0 — Poisson passt gut genug |
 | L2-Regularisierung | ±0 — genug Trainingsdaten |
-| Over/Under-Quoten | -11 Pkt — verschlechtert Tendenz-Trefferquote |
+| Over/Under-Quoten | ±0 auf Closing (n.s.); älteres −11 Pkt war gegen Pre-Closing gemessen |
+| Asian Handicap + Totals (Exact-Score-Proxy) | ±0 — Tordifferenz steckt schon in 1X2 ([EXPERIMENTS.md](EXPERIMENTS.md)) |
 | Teamspezifischer Heimvorteil | -13 Pkt — Overfitting |
 | Remis-Boost | -13 Pkt — Modell optimiert schon korrekt |
 | Score-Matrix Recalibration | -33 Pkt — Bias-Muster instabil über Saisons |
