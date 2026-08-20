@@ -258,16 +258,18 @@ def fetch_odds_csv(season: int, closing: bool = True) -> list[dict]:
             "away_goals": int(row.get("FTAG", 0)),
         }
 
-        # Pinnacle Over/Under 2.5
-        try:
-            p_ov = float(row.get("P>2.5") or 0)
-            p_un = float(row.get("P<2.5") or 0)
-            if p_ov > 0 and p_un > 0:
-                inv_ou = 1/p_ov + 1/p_un
-                entry["p_over"] = (1/p_ov) / inv_ou
-                entry["ou_line"] = 2.5
-        except (ValueError, TypeError):
-            pass
+        # Pinnacle Over/Under 2.5 — Closing (PC) bevorzugt, sonst Pre-Closing (P),
+        # analog zur 1X2-Logik. closing=False bleibt bei Pre-Closing.
+        if closing:
+            p_ov = _odds_val(row, "PC>2.5", "P>2.5")
+            p_un = _odds_val(row, "PC<2.5", "P<2.5")
+        else:
+            p_ov = _odds_val(row, "P>2.5")
+            p_un = _odds_val(row, "P<2.5")
+        if p_ov > 0 and p_un > 0:
+            inv_ou = 1/p_ov + 1/p_un
+            entry["p_over"] = (1/p_ov) / inv_ou
+            entry["ou_line"] = 2.5
 
         rows.append(entry)
     return rows

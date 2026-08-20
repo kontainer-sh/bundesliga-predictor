@@ -710,6 +710,11 @@ Pre-Closing-Ergebnis in der README-Tabelle — Reruns weichen ab (siehe 2026-08-
 2. ✅ **football-data.co.uk Pinnacle-Spalten** (erledigt 2026-08-16) —
    `fetch_odds_csv` nutzt jetzt die Closing-Line (PSCH) als Default; der
    DM-Test oben zeigt, dass Closing das Modell signifikant schlägt.
+   Nachzug 2026-08-21: Auch die Over/Under-Rekonstruktion nutzt jetzt Closing
+   (`PC>2.5`, Fallback → `P>2.5`) statt weiterhin Pre-Closing — die
+   Closing-Umstellung hatte nur die 1X2-Spalten erfasst. Backtest davor/danach
+   (SP1–30 2024/25): 225 → 225, **null Punkt-Effekt** (O/U ist neutral); p_over
+   verschiebt sich real (Ø 0.023), nur die Quelle wird konsistent.
 3. **Isotone 1X2-Recalibration** (Wilkens 2026) — nur noch als billiger
    Bestätigungstest (isotoner Fit auf Rolling-Window), erwartetes Ergebnis:
    Null (siehe Literatur-Review Punkt 2). Schließt den Punkt so oder so.
