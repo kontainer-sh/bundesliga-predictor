@@ -10,7 +10,7 @@ SICHERHEIT:
   --submit wird wirklich abgegeben.
 - Credentials NUR aus Umgebungsvariablen, nie im Repo:
     KICKTIPP_EMAIL, KICKTIPP_PASSWORD   (in GitHub Actions als Secrets, wie ODDS_API_KEY)
-    KICKTIPP_COMMUNITY  (optional, Default 'baeurer')
+    KICKTIPP_COMMUNITY  (erforderlich: Runden-Slug; ohne ihn bricht das Skript ab)
 - Kann ein Spiel nicht eindeutig einem Modell-Tipp zugeordnet werden, bricht das
   Skript ab und gibt NICHTS ab.
 - Bereits getippte Spiele bleiben unangetastet (außer --overwrite).

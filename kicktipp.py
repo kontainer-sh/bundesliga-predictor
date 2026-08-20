@@ -547,9 +547,13 @@ _TEAM_NAME_MAP.update({
     "FSV Mainz 05": "1. FSV Mainz 05",
     "1. FC Heidenheim": "1. FC Heidenheim 1846",
     "Hamburger SV": "Hamburger SV",
-    # Aufsteiger Saison 2026/27 (Odds-API nutzt Kurznamen)
+    # Aufsteiger Saison 2026/27 — defensiv mehrere Namensvarianten der Quellen
+    # (The Odds API vs. Kicktipp) abdecken, da _find_odds exakt matcht.
     "Elversberg": "SV 07 Elversberg",
+    "SV Elversberg": "SV 07 Elversberg",
     "SC Paderborn": "SC Paderborn 07",
+    "Paderborn 07": "SC Paderborn 07",
+    "Schalke": "FC Schalke 04",
 })
 
 
