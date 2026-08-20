@@ -568,7 +568,82 @@ korrekte EV-max-Trade-off, kein ausnutzbarer Fehler. Kein Modell-Hebel.
 
 ---
 
-## Backlog (aktualisiert 2026-08-16)
+## 2026-08-20 — Deep-Research-Nachfassen: Schlägt irgendetwas Pinnacle-Closing? (extern bestätigt)
+
+**Frage:** Erweiterung des Literatur-Reviews vom 2026-07-14 — gibt es *neue* (2024–2026)
+publizierte oder reproduzierbare Evidenz, dass ein Modell oder eine Datenquelle
+Pinnacle-**Closing** für 1X2 oder exakte Ergebnisse schlägt? Fokus: proper scoring
+(RPS/LogLoss/Brier) und echter CLV, moderne ML (GNN/Transformer/GBT), strikt gegen die
+*scharfe* Closing-Line (Soft-/Durchschnitts-/In-Play-/Opening-Benchmarks zählen nicht).
+
+**Methode:** Multi-Agent-Deep-Research über 5 Suchwinkel, 16 Quellen gefetcht, 66 Claims
+extrahiert, Top 25 adversarial verifiziert (3-Voter-Panel, 2/3-Refute killt): **22 bestätigt,
+3 widerlegt, 0 unverifiziert**.
+
+**Kernbefunde:**
+
+1. **Erstmals direkte Evidenz gegen Pinnacle-Closing — und sie ist negativ.**
+   Pitcan 2026 (Serie A, [arxiv 2608.11505](https://arxiv.org/html/2608.11505)) ist der erste
+   gefundene Aufsatz, der explizit die Closing-Line als Benchmark nutzt, mit fast unserem
+   Setup: zeitgewichtetes **Dixon-Coles, log-pooled mit Pinnacle-Closing**. Das optimale
+   Mischgewicht auf dem DC-Modell ist **exakt 0.000** (Rand-Lösung, auf Validierung *und* Test
+   bestätigt, LogLoss monoton steigend im Gewicht). Closing schlägt DC auf allen proper scores
+   (n=2.660): **RPS 0.1905 vs. 0.1972**, LogLoss 0.962 vs. 0.986, Brier 0.572 vs. 0.586
+   (paired RPS-Diff +0.0067, 95%-CI [0.0046, 0.0088]). O-Ton: *„the closing price has already
+   absorbed both."* → **Externe Replikation unseres DM-Tests** (2026-08-16: unser Modell 0.2008
+   vs. Closing 0.1972): gleiche Richtung, gleiche Größenordnung, andere Liga.
+
+2. **Reproduzierbarer CLV-Test, ebenfalls negativ.** Boui-Repo
+   ([github.com/zakariae-boui/football-prediction-ml](https://github.com/zakariae-boui/football-prediction-ml)):
+   Wetten zu Bet365, bewertet gegen Pinnacle-Closing (de-vigged), 6.080 PL/LaLiga-Spiele mit
+   Understat-xG → **negativer CLV für alle Modelle** (RF/XGBoost/SVM). Kein zirkulärer
+   CLV-Fehler (Closing nur zur Bewertung, nie als Feature).
+
+3. **Moderne ML schlägt den Markt nicht — und testet meist gar nicht dagegen.**
+   Graph-Transformer **HIGFormer** ([2507.10626](https://arxiv.org/abs/2507.10626), WyScout-Events)
+   benchmarkt nur gegen andere ML-Modelle, nie gegen Quoten, nur 52,2 % Accuracy, kein RPS/CLV.
+   Der Deep-Learning-Sieger der 2023 Soccer Prediction Challenge
+   ([Springer](https://link.springer.com/article/10.1007/s10994-024-06608-w)) **verliert** gegen
+   Buchmacher-Konsens auf RPS (0.2195 vs. 0.2063). Der ML-Sports-Betting-Review
+   ([2410.21484](https://arxiv.org/html/2410.21484v1)) erwähnt „closing"/„Pinnacle"/CLV **kein
+   einziges Mal**.
+
+4. **Alle 2024–26 „Profit"/„Score-Win"-Headlines fallen am scharfen Closing durch.**
+   Wilkens 2026 (Bundesliga, [JSA](https://journals.sagepub.com/doi/10.1177/22150218261416681)):
+   Benchmark = Ø **~15 Soft-Books** + Line-Shopping, Returns explizit „upper bound … rather than
+   readily realisable"; auf proper scores gewinnt der *Markt* den Brier. AFT
+   ([2605.16066](https://arxiv.org/abs/2605.16066)) = **In-Play**-Betfair, nicht Pre-Match/Closing,
+   unterbietet den Markt sogar auf Accuracy. Egidi 2018 = **7 Soft-Books** (verliert dennoch gegen
+   odds-implizit in jeder Liga — Overfit-Widerspruch). Hegarty & Whelan 2024
+   ([IJF](https://www.sciencedirect.com/science/article/pii/S0169207024000670)) = Soft-Book-AH,
+   kein Head-to-Head gegen Pinnacles eigene 1X2-Closing.
+
+5. **De-Vig cappt per Konstruktion, Exact-Score bleibt datenarm.** MDPI 2025
+   ([Mathematics 13(24):3976](https://www.mdpi.com/2227-7390/13/24/3976)) sagt selbst: bestenfalls
+   *Parität* mit dem Buch, nie Gewinn (Marge). Exact-Score: weiter **keine** CLV-Evidenz; der
+   LLM-Rerank-Harness ([2608.05030](https://arxiv.org/html/2608.05030)) benchmarkt nie gegen
+   Quoten; weiterhin keine freie Pinnacle-Correct-Score-Quelle → CS-Ceiling bleibt nur *inferiert*
+   (konsistent mit Headroom-Analyse 2026-08-16).
+
+**Widerlegt (adversarial, für Transparenz):** „scharfer AH-Markt beweisbar bias-frei" (1-2),
+Stübinger et al. 2019 RF-„Edge" (~1,58 %/Spiel; 1-2, kein Signifikanz-/Sharp-Line-Test),
+„margin-removed Pinnacle-Closing perfekt kalibriert in 1%-Bins" (0-3, Blog-Qualität).
+
+**Aktion / Implikation:**
+- Das ~20–30-Pkt-Ceiling ist jetzt **extern und in unserem Setup** bestätigt (DC + Closing →
+  Gewicht 0.000). „Match the closing line" ist das empirische Ceiling, kein bloßer Prior.
+- DC-Layer bleibt **Fallback** (fehlende/stale Closing, Exact-Score-Verteilung), kein
+  Informations-Add-on. Isotone Recal (Backlog #3) und GAS/pi-Rating (#4) unverändert erwartetes
+  Null → Priorität bleibt gesenkt.
+- Einziger belegter Hebel bleibt **Kicktipp-Score-Optimierung auf** der Closing-Line (Backlog #1,
+  Anti-Popularitäts-Variante) — Entscheidungstheorie, nicht bessere Wahrscheinlichkeiten.
+
+**Vollständiger Report** (alle 6 Findings, Caveats, 4 offene Fragen, 16 Quellen):
+[docs/research/2026-08-20-closing-line.md](docs/research/2026-08-20-closing-line.md).
+
+---
+
+## Backlog (aktualisiert 2026-08-20)
 
 1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
    `backtest_variance_strategy.py` mit kalibriertem, heterogenem Feld: Varianz-Tilt
@@ -585,7 +660,8 @@ korrekte EV-max-Trade-off, kein ausnutzbarer Fehler. Kein Modell-Hebel.
 4. **Score-driven Team-Stärken (GAS)** (Koopman & Lit 2015/2019) und
    **pi-Rating** (Constantinou 2013) — bleiben als Modell-Layer-Ideen,
    aber Priorität gesenkt: das ~20–30-Pkt-Ceiling (λ-Sweep, EV-Gap-Test,
-   Literatur-Review Punkt 1) deckelt den Nutzen jeder DC-Verbesserung.
+   Literatur-Review Punkt 1, extern repliziert 2026-08-20: Pitcan Serie-A,
+   DC-Pooling-Gewicht 0.000 gegen Closing) deckelt den Nutzen jeder DC-Verbesserung.
 
 **Gestrichen:** Bayesianische λ-Schätzung (Egidi/Pauli/Torelli 2018) —
 Begründung im Literatur-Review vom 2026-07-14, Punkt 3.
