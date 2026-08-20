@@ -165,6 +165,79 @@ check("Alter Bug hätte Vorsaison-Rückrunde verworfen", "vor-rueck" not in _bug
 check("Fix behält 324-Äquivalent (mehr als der Bug)", len(s1) > len(_buggy))
 print()
 
+# --- _odds_val Fallback-Kette (Closing → Pre-Closing → generisch) ---
+print("_odds_val (Regression gegen die O/U-Closing-Bug-Klasse):")
+check("Closing bevorzugt", kt._odds_val({"PSCH": "2.0", "PSH": "1.9"}, "PSCH", "PSH", "PH") == 2.0)
+check("Fallback wenn Closing fehlt", kt._odds_val({"PSH": "1.9"}, "PSCH", "PSH", "PH") == 1.9)
+check("Leerer Wert übersprungen", kt._odds_val({"PSCH": "", "PSH": "1.9"}, "PSCH", "PSH") == 1.9)
+check("Null übersprungen (v>0)", kt._odds_val({"PSCH": "0", "PSH": "1.9"}, "PSCH", "PSH") == 1.9)
+check("Unparsebar übersprungen", kt._odds_val({"PSCH": "x", "PSH": "1.9"}, "PSCH", "PSH") == 1.9)
+check("Nichts vorhanden → 0.0", kt._odds_val({}, "PSCH", "PSH") == 0.0)
+print()
+
+# --- odds_to_score_matrix reproduziert die Quoten-Inputs (KL-Fidelity, nicht nur Orientierung) ---
+print("odds_to_score_matrix (Round-Trip: Matrix reproduziert die Inputs):")
+def _hda(mat):
+    n = kt.MAX_GOALS + 1
+    return (float(np.sum(mat[np.tril_indices(n, -1)])), float(np.trace(mat)),
+            float(np.sum(mat[np.triu_indices(n, 1)])))
+for _p in [(0.5, 0.3, 0.2), (0.25, 0.28, 0.47), (0.7, 0.18, 0.12), (0.45, 0.27, 0.28)]:
+    _m = kt.odds_to_score_matrix(*_p)
+    _ph, _pd, _pa = _hda(_m)
+    _err = max(abs(_ph-_p[0]), abs(_pd-_p[1]), abs(_pa-_p[2]))
+    check(f"H/D/A {_p} reproduziert (max-Fehler {_err:.3f})", _err < 0.04)
+# O/U-Branch: reproduziert zusätzlich P(over 2.5), Favorit bleibt Favorit
+_mou = kt.odds_to_score_matrix(0.4, 0.3, 0.3, p_over=0.60, ou_line=2.5)
+_n = kt.MAX_GOALS + 1
+_over = float(sum(_mou[i, j] for i in range(_n) for j in range(_n) if i + j > 2.5))
+check(f"O/U-Branch reproduziert P(over)=0.60 (ist {_over:.3f})", abs(_over-0.60) < 0.04)
+_oh, _od, _oa = _hda(_mou)
+check("O/U-Branch: Heim bleibt Favorit", _oh > _od and _oh > _oa)
+print()
+
+# --- compute_tip (der ECHTE Prod-Tipp: Modell + Odds-Mix; best_tip ist nur Modell-only) ---
+print("compute_tip (Modell + Odds-Blend):")
+_th, _ta, _ev = kt.compute_tip("Home", "Away", model)  # 'model' = Heimfavorit (oben def.)
+check(f"Ohne Odds, Heimfav → Heimsieg-Tipp ({_th}:{_ta})", _th > _ta)
+check("Tipp im gültigen Bereich [0..MAX_TIP_GOALS]",
+      0 <= _th <= kt.MAX_TIP_GOALS and 0 <= _ta <= kt.MAX_TIP_GOALS)
+# Symmetrisches Modell, aber Odds klar auswärts → 70%-Blend zieht auf Auswärtssieg
+_odds_away = {("A", "B"): {"p_home": 0.15, "p_draw": 0.20, "p_away": 0.65}}
+_tha, _taa, _ = kt.compute_tip("A", "B", model_sym, _odds_away)
+check(f"Odds (Auswärtsfav) überstimmen sym. Modell ({_tha}:{_taa})", _tha < _taa)
+print()
+
+# --- time_weight (Halbwertszeit-Gewichtung, trägt den DC-Fit) ---
+print("time_weight:")
+from datetime import timedelta
+_ref = datetime(2026, 1, 1)
+check("t=0 → Gewicht 1.0", abs(kt.time_weight(_ref, _ref) - 1.0) < 1e-9)
+check("t=Halbwertszeit → 0.5", abs(kt.time_weight(_ref - timedelta(days=100), _ref, 100) - 0.5) < 1e-6)
+check("monoton fallend (älter < neuer)",
+      kt.time_weight(_ref - timedelta(days=200), _ref, 100) < kt.time_weight(_ref - timedelta(days=50), _ref, 100))
+check("Zukunft geklemmt → 1.0", abs(kt.time_weight(_ref + timedelta(days=30), _ref, 100) - 1.0) < 1e-9)
+print()
+
+# --- parse_matches (speist den Split: Endergebnis/Saison/Liga/Datum korrekt, Ungespieltes raus) ---
+print("parse_matches:")
+_raw = [
+    {"group": {"groupOrderID": 7}, "matchDateTimeUTC": "2026-03-01T15:30:00Z",
+     "team1": {"teamName": "FC A"}, "team2": {"teamName": "FC B"},
+     "matchResults": [{"resultTypeID": 1, "pointsTeam1": 1, "pointsTeam2": 0},
+                      {"resultTypeID": 2, "pointsTeam1": 2, "pointsTeam2": 1}]},
+    {"group": {"groupOrderID": 8}, "matchDateTimeUTC": "2026-03-08T15:30:00Z",
+     "team1": {"teamName": "FC C"}, "team2": {"teamName": "FC D"},
+     "matchResults": []},  # noch nicht gespielt → muss rausfallen
+]
+_pm = kt.parse_matches(_raw, "bl1", 2025)
+check("Nur gespielte Matches (1 von 2)", len(_pm) == 1)
+check("Endergebnis (resultTypeID==2) genommen",
+      _pm[0]["home_goals"] == 2 and _pm[0]["away_goals"] == 1)
+check("Saison/Liga/Spieltag korrekt",
+      _pm[0]["season"] == 2025 and _pm[0]["league"] == "bl1" and _pm[0]["matchday"] == 7)
+check("Datum geparst (Jahr 2026)", _pm[0]["date"].year == 2026)
+print()
+
 # --- Ergebnis ---
 if errors == 0:
     print("Alle Tests bestanden.")
