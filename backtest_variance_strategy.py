@@ -71,8 +71,8 @@ def build_fixtures(season, remaining):
     allm = kt.load_all_matches(season)
     sb = [m for m in allm if m["league"] == "bl1" and m["season"] == season]
     split_md = max(m["matchday"] for m in sb) - remaining + 1
-    model = kt.fit_dixon_coles(kt.training_split(allm, season, split_md),
-                               min(m["date"] for m in sb if m["matchday"] == split_md))
+    ref = min(m["date"] for m in sb if m["matchday"] == split_md)
+    model = kt.fit_dixon_coles(kt.training_split(allm, season, split_md, ref_date=ref), ref)
     fx = []
     for m in sb:
         if m["matchday"] < split_md:
