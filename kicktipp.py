@@ -739,17 +739,17 @@ def best_tip_combined(home: str, away: str, model: dict,
 
 
 def _find_odds(odds_dict: dict, home: str, away: str) -> dict | None:
-    """Sucht Quoten für ein Fixture — auch bei vertauschten Teams."""
+    """Sucht Quoten für ein Fixture per exaktem (home, away)-Match.
+
+    KEIN Reverse-Fixture-Fallback (Finding 2, Review 2026-08-21): Hin- und
+    Rückspiel sind verschiedene Partien (Monate auseinander, venue-spezifischer
+    Heimvorteil). Die Quoten des Rückspiels zu tauschen wäre eine stille
+    Falsch-Substitution — potenziell sogar mit Zukunftsdaten. Fehlt die exakte
+    Zeile → None → das Spiel läuft model-only (Coverage-Warnung in auto_predict).
+    """
     if not odds_dict:
         return None
-    # Exakter Match
-    if (home, away) in odds_dict:
-        return odds_dict[(home, away)]
-    # Umgekehrte Paarung (Hin-/Rückspiel) → Wahrscheinlichkeiten tauschen
-    if (away, home) in odds_dict:
-        od = odds_dict[(away, home)]
-        return {"p_home": od["p_away"], "p_draw": od["p_draw"], "p_away": od["p_home"]}
-    return None
+    return odds_dict.get((home, away))
 
 
 # HINWEIS: Die Recalibration-Korrektur wurde getestet und führt zu
