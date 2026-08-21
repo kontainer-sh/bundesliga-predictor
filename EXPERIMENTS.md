@@ -767,9 +767,13 @@ gefixt (ref_date-Cutoff wie in kicktipp.py), dann neu gerechnet.
   ~11pp untertippt — konsistent mit der Score-Markets-Diagnose; für die Tipp-Wahl
   (argmax über 0:0–2:2) folgenlos.
 
-**Noch offen:** `backtest_dm_test.py` (Leak + dependence-aware SE) sowie die restlichen
-Skripte (λ-sweep, draw-bias, score-headroom, variance, recalibration) — Leak-Fix +
-Neurechnung folgen; danach Reverse-Fixture-Fallback (Finding 2 des Reviews).
+**Erledigt 2026-08-21:** `backtest_dm_test.py` (dependence-aware, siehe Nachtrag oben)
+sowie λ-sweep/draw-bias/score-headroom/variance/recalibration — alle leak-frei +
+1X2-konsistent neu gerechnet, **alle Schlüsse halten**: λ-Sweep bestes λ=0.5 aber n.s.
+gegen 0.7 (Saison-Optima 0.4/0.9/0.6 → kein robustes Optimum, ODDS_WEIGHT=0.7 bleibt);
+draw-bias δ=1.0 optimal (kein Remis-Edge); score-headroom Δ(3−2)≈+0.014 Pkt/Spiel (~0);
+variance-tilt γ*≈0 im kalibrierten Casual-Feld; recalibration n.s. negativ (bleibt
+verworfen). **Noch offen:** Reverse-Fixture-Fallback (Finding 2), Härtung (Findings 5–8).
 
 ---
 

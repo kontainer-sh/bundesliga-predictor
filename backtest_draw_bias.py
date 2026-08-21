@@ -48,7 +48,7 @@ def main():
             if not mdm:
                 continue
             ref = min(m["date"] for m in mdm)
-            model = kt.fit_dixon_coles(kt.training_split(allm, season, md), ref)
+            model = kt.fit_dixon_coles(kt.training_split(allm, season, md, ref_date=ref), ref)
             for m in mdm:
                 h, a, rh, ra = m["home"], m["away"], m["home_goals"], m["away_goals"]
                 if h not in model["attack"] or a not in model["attack"]:

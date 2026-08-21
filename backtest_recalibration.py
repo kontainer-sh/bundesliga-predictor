@@ -57,15 +57,14 @@ def main():
     matches_no_odds = 0
 
     for md in range(1, 35):
-        training = kt.training_split(all_matches, TEST_SEASON, md)
-        if len(training) < kt.MIN_MATCHES:
-            continue
-
         md_matches = [m for m in season_matches if m["matchday"] == md]
         if not md_matches:
             continue
-
         ref_date = min(m["date"] for m in md_matches)
+        training = kt.training_split(all_matches, TEST_SEASON, md, ref_date=ref_date)
+        if len(training) < kt.MIN_MATCHES:
+            continue
+
         t0 = time.time()
         model = kt.fit_dixon_coles(training, ref_date)
 
