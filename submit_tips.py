@@ -180,7 +180,21 @@ def main():
 
     resp = session.post(f"{BASE}/{args.community}/tippabgabe", data=data, timeout=30)
     resp.raise_for_status()
-    print(f"\n✓ {to_submit} Tipps abgegeben (HTTP {resp.status_code}).")
+
+    # Verifikation: HTTP 200 heißt nicht, dass die Tipps akzeptiert wurden (ein
+    # Formular-/Schema-Wechsel könnte still ignorieren). Formular neu holen und
+    # prüfen, dass die abgegebenen Spiele jetzt wirklich getippt sind.
+    _, games_after = fetch_form(session, args.community)
+    after = {g["tid"]: g for g in games_after}
+    saved = sum(1 for g in games
+                if not (g["has_tip"] and not args.overwrite)
+                and after.get(g["tid"], {}).get("has_tip"))
+    if saved < to_submit:
+        raise SystemExit(
+            f"FEHLER: Nur {saved}/{to_submit} Tipps nach der Abgabe im Formular "
+            f"bestätigt (HTTP {resp.status_code}). Formular/Schema geändert? "
+            f"Bitte manuell prüfen — es wurde NICHT verlässlich abgegeben.")
+    print(f"\n✓ {to_submit} Tipps abgegeben und verifiziert (HTTP {resp.status_code}).")
 
 
 if __name__ == "__main__":
