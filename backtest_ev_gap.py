@@ -53,14 +53,13 @@ def run_season(test_season: int):
 
     rows = []
     for md in range(1, 35):
-        training = kt.training_split(all_matches, test_season, md)
-        if len(training) < kt.MIN_MATCHES:
-            continue
         md_matches = [m for m in season_matches if m["matchday"] == md]
         if not md_matches:
             continue
-
         ref_date = min(m["date"] for m in md_matches)
+        training = kt.training_split(all_matches, test_season, md, ref_date=ref_date)
+        if len(training) < kt.MIN_MATCHES:
+            continue
         model = kt.fit_dixon_coles(training, ref_date)
 
         for m in md_matches:
@@ -72,9 +71,8 @@ def run_season(test_season: int):
             if od is None:
                 continue
             dc_mat = kt.score_matrix(home, away, model)
-            o_mat = kt.odds_to_score_matrix(
-                od["p_home"], od["p_draw"], od["p_away"],
-                od.get("p_over"), od.get("ou_line", 2.5))
+            # 1X2-only — konsistent mit Produktion (siehe backtest_disagreement.py)
+            o_mat = kt.odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
 
             mat_m = (1 - LAMBDA_MODEL) * dc_mat + LAMBDA_MODEL * o_mat
             mat_m /= mat_m.sum()

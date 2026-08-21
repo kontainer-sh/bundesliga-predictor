@@ -736,6 +736,35 @@ dependence-aware SE neu rechnen. Bis dahin bleiben die Zahlen im README-Abschnit
 
 ---
 
+## 2026-08-21 — Forecast-Stack vereinheitlicht + Validierungs-Zahlen leak-frei neu gemessen
+
+**Kontext (Korrektur einer eigenen Fehlaussage):** Der Review vermutete, `cmd_backtest`
+strippe O/U und weiche damit von der Produktion ab. Verifiziert: Produktion ist selbst
+**1X2-only** — `fetch_live_odds` berechnet O/U, packt es aber nicht in den Odds-Dict
+(Z. 517: „O/U wird abgerufen aber nicht genutzt"). Prod und `cmd_backtest` sind also
+konsistent (bewusst 1X2-only). Die einzige Drift lag in den **Experiment-Skripten**
+(disagreement/ev-gap/calibration/λ-sweep), die über `fetch_odds_csv` O/U mitzogen.
+
+**Fix:** Diese Skripte auf 1X2-only gezogen (kanonischer Stack) **und** den BL2-Leak
+gefixt (ref_date-Cutoff wie in kicktipp.py), dann neu gerechnet.
+
+**Neue Zahlen (leak-frei + 1X2-konsistent, 918 BL1-Spiele 2022–2024) — Schlüsse halten:**
+- **Disagreement:** 142/15,5 % → **182/19,8 %** (O/U-Strip lässt Modell & Quoten öfter
+  divergieren). λ=0.7: p=0.72 → **0.775**; λ=0.3: p=0.59 → **0.875**. Beide klar n.s. —
+  kein DC-Edge, robuster als vorher (der λ=0.3-„Vorteil" ist jetzt ~0).
+- **EV-Gap:** „88,7 % der Disagreements bei Gap <0.01" → **77,5 %**; „bei Gap ≥ 0.04
+  100 % Übereinstimmung" hält (0 Disagreements). Pro Bin weiter keine konsistente Richtung.
+- **Calibration:** Auf **1X2** weiter gut kalibriert (ECE < 0.03, Mix am besten). Auf
+  **Over/BTTS** jetzt schlecht (ECE 0.08–0.11), weil die 1X2-only-Rekonstruktion Overs
+  ~11pp untertippt — konsistent mit der Score-Markets-Diagnose; für die Tipp-Wahl
+  (argmax über 0:0–2:2) folgenlos.
+
+**Noch offen:** `backtest_dm_test.py` (Leak + dependence-aware SE) sowie die restlichen
+Skripte (λ-sweep, draw-bias, score-headroom, variance, recalibration) — Leak-Fix +
+Neurechnung folgen; danach Reverse-Fixture-Fallback (Finding 2 des Reviews).
+
+---
+
 ## Backlog (aktualisiert 2026-08-21)
 
 1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
