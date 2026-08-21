@@ -409,6 +409,14 @@ DM = +2.07, **p = 0.039**, Bootstrap-95%-CI [+0.0003, +0.0071] (schließt 0 aus)
 Zum Kontrast Kicktipp-Punkte Ø/Spiel: Modell 0.810 vs. Closing 0.819 — statistisch
 *nicht* unterscheidbar, Ranking kippt saisonweise.
 
+**Nachtrag 2026-08-21 (leak-frei + dependence-aware, Review-Finding 4):** Nach dem
+BL2-Leak-Fix ist das RPS unverändert (Modell 0.2008 / Closing 0.1972 — der Leak wirkte
+praktisch nicht aufs 1X2-RPS). Die Lag-0-Annahme (unkorrelierte Spiele) wurde durch
+Newey-West-HAC (Lag ≈ 1 Spieltag) und Moving-Block-Bootstrap ersetzt: **p=0.035 (HAC)
+bzw. p=0.043 (Block-Bootstrap)** gegenüber iid p=0.039. Die Signifikanz **hält also
+auch dependence-aware** (die HAC-Varianz fiel sogar minimal kleiner aus) — die Sorge,
+ein abhängigkeits-robuster SE könne p über 0.05 schieben, bestätigt sich nicht.
+
 **Befund:** Closing schlägt das Modell auf 1X2 **signifikant** — der Markt-Edge ist
 real, aber so klein, dass ihn nur ein propres Maß sichtbar macht; auf Kicktipp-
 Punkten verschwindet er. Erstmals das ~20–30-Pkt-Ceiling mit formalem
