@@ -151,10 +151,10 @@ der Diebold-Mariano-Test läuft über 1186 Spiele gegen die Pinnacle-**Closing**
 
 | Test | Befund |
 |---|---|
-| **Disagreement-Test** (Paired Bootstrap nur auf Spielen, bei denen Modell ≠ Quoten tippen) | Kein signifikanter Edge: λ=0.7 → p=0.72, λ=0.3 → p=0.59. Der scheinbare λ=0.3-Vorteil aus dem λ-Sweep ist ein Single-Season-Artefakt. |
-| **EV-Gap-Sensitivität** (binweise Auswertung nach EV(bester Tipp) − EV(zweitbester)) | 88.7% aller Disagreements liegen bei Gap < 0.01 Pkt. Bei Gap ≥ 0.04 stimmen Modell und Quoten zu 100% überein. Pro Bin keine konsistente Richtung des Δ. |
-| **Calibration-Test** (Brier, LogLoss, ECE für 1X2/Over/BTTS) | Score-Matrix ist bereits gut kalibriert (ECE < 0.04). Quoten sind schärfer, DC besser kalibriert; der 70/30-Mix halbiert die ECE-Lücke. Im Kicktipp-Argmax-Regime praktisch unsichtbar. |
-| **Diebold-Mariano-Test** (RPS, *propres* Scoring, 1186 Spiele 2022–2025, Modell vs. Pinnacle-Closing) | Auf 1X2 schlägt die **Closing-Line das Modell signifikant**: RPS 0.1972 vs. 0.2008, DM = +2.07, **p = 0.039** (Bootstrap-CI schließt 0 aus). Auf Kicktipp-Punkten verschwindet der Unterschied (Ø 0.810 vs. 0.819, n.s.) — das improper Punktemaß kann ihn nicht auflösen. |
+| **Disagreement-Test** (Paired Bootstrap nur auf Spielen, bei denen Modell ≠ Quoten tippen) | Kein signifikanter Edge: λ=0.7 → 182 Disagreements (19,8 %), p=0.775; λ=0.3 → p=0.875. Der scheinbare λ=0.3-Vorteil aus dem λ-Sweep ist ein Single-Season-Artefakt. |
+| **EV-Gap-Sensitivität** (binweise Auswertung nach EV(bester Tipp) − EV(zweitbester)) | 77,5 % aller Disagreements liegen bei Gap < 0.01 Pkt. Bei Gap ≥ 0.04 stimmen Modell und Quoten zu 100 % überein. Pro Bin keine konsistente Richtung des Δ. |
+| **Calibration-Test** (Brier, LogLoss, ECE für 1X2/Over/BTTS) | Auf **1X2** alle Strategien gut kalibriert (ECE < 0.03; der 70/30-Mix am besten). Auf **Over/BTTS** ist die 1X2-only-Rekonstruktion schlecht kalibriert (ECE 0.08–0.11, Overs ~11pp untertippt) — Produktion nutzt bewusst keine Markt-O/U; für die Tipp-Wahl (0:0–2:2, argmax) folgenlos. |
+| **Diebold-Mariano-Test** (RPS, *propres* Scoring, 1186 Spiele 2022–2025, Modell vs. Pinnacle-Closing) | Auf 1X2 schlägt die **Closing-Line das Modell signifikant**: RPS 0.1972 vs. 0.2008, DM = +2.07, **p = 0.039**. Auf Kicktipp-Punkten verschwindet der Unterschied (n.s.). *(Zahlen aus einem Lauf mit dem BL2-Leak; leak-freie + dependence-aware Neurechnung folgt — die Richtung ist durch die externe Replikation Pitcan robust.)* |
 
 **Interpretation:** Auf dem (impropren) Kicktipp-Punkteschema ist zwischen DC-Layer
 und reinen Quoten kein Unterschied nachweisbar — das war der Stand von Mai 2026. Der

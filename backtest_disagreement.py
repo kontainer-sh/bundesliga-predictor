@@ -47,14 +47,13 @@ def run_season(test_season: int):
 
     rows = []
     for md in range(1, 35):
-        training = kt.training_split(all_matches, test_season, md)
-        if len(training) < kt.MIN_MATCHES:
-            continue
         md_matches = [m for m in season_matches if m["matchday"] == md]
         if not md_matches:
             continue
-
         ref_date = min(m["date"] for m in md_matches)
+        training = kt.training_split(all_matches, test_season, md, ref_date=ref_date)
+        if len(training) < kt.MIN_MATCHES:
+            continue
         model = kt.fit_dixon_coles(training, ref_date)
 
         for m in md_matches:
@@ -66,9 +65,10 @@ def run_season(test_season: int):
             if od is None:
                 continue
             dc_mat = kt.score_matrix(home, away, model)
-            o_mat = kt.odds_to_score_matrix(
-                od["p_home"], od["p_draw"], od["p_away"],
-                od.get("p_over"), od.get("ou_line", 2.5))
+            # 1X2-only — konsistent mit Produktion (fetch_live_odds liefert kein
+            # p_over; O/U-CV zeigte keine Verbesserung). Vor 2026-08-21 nutzte
+            # dieses Skript versehentlich O/U und driftete vom Prod-Stack ab.
+            o_mat = kt.odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"])
 
             tm_h, tm_a = tip_for_lambda(dc_mat, o_mat, LAMBDA_MODEL)
             to_h, to_a = tip_for_lambda(dc_mat, o_mat, LAMBDA_ODDS)
