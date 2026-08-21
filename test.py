@@ -66,10 +66,10 @@ print()
 print("Odds-Matching:")
 odds = {("Team A", "Team B"): {"p_home": 0.5, "p_draw": 0.3, "p_away": 0.2}}
 check("Direkt gefunden", kt._find_odds(odds, "Team A", "Team B") is not None)
-reversed_od = kt._find_odds(odds, "Team B", "Team A")
-check("Umgekehrt gefunden", reversed_od is not None)
-check("Umgekehrt: p_home/p_away getauscht",
-      reversed_od["p_home"] == 0.2 and reversed_od["p_away"] == 0.5)
+# Kein Reverse-Fixture-Fallback (Finding 2): das Rückspiel ist eine andere Partie —
+# stille Substitution (evtl. mit Zukunftsdaten) wäre gefährlicher als „keine Odds".
+check("Umgekehrt → None (keine stille Substitution)",
+      kt._find_odds(odds, "Team B", "Team A") is None)
 check("Nicht gefunden", kt._find_odds(odds, "Team A", "Team C") is None)
 check("Leeres Dict", kt._find_odds({}, "A", "B") is None)
 check("None", kt._find_odds(None, "A", "B") is None)

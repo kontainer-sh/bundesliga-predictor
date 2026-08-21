@@ -773,7 +773,10 @@ sowie λ-sweep/draw-bias/score-headroom/variance/recalibration — alle leak-fre
 gegen 0.7 (Saison-Optima 0.4/0.9/0.6 → kein robustes Optimum, ODDS_WEIGHT=0.7 bleibt);
 draw-bias δ=1.0 optimal (kein Remis-Edge); score-headroom Δ(3−2)≈+0.014 Pkt/Spiel (~0);
 variance-tilt γ*≈0 im kalibrierten Casual-Feld; recalibration n.s. negativ (bleibt
-verworfen). **Noch offen:** Reverse-Fixture-Fallback (Finding 2), Härtung (Findings 5–8).
+verworfen). Reverse-Fixture-Fallback in `_find_odds` entfernt (Finding 2): Headline-
+Backtest 228 unverändert → der Zweig war dormant, feuerte nie, aber die stille
+Falsch-Substitution ist als Footgun beseitigt. **Noch offen:** Härtung (Findings 5–8:
+Timezone/zoneinfo, Optimizer-Convergence-Guard, Cache-TTL, Submit-Verifikation).
 
 ---
 
