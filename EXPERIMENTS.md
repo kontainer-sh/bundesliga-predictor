@@ -775,8 +775,14 @@ draw-bias δ=1.0 optimal (kein Remis-Edge); score-headroom Δ(3−2)≈+0.014 Pk
 variance-tilt γ*≈0 im kalibrierten Casual-Feld; recalibration n.s. negativ (bleibt
 verworfen). Reverse-Fixture-Fallback in `_find_odds` entfernt (Finding 2): Headline-
 Backtest 228 unverändert → der Zweig war dormant, feuerte nie, aber die stille
-Falsch-Substitution ist als Footgun beseitigt. **Noch offen:** Härtung (Findings 5–8:
-Timezone/zoneinfo, Optimizer-Convergence-Guard, Cache-TTL, Submit-Verifikation).
+Falsch-Substitution ist als Footgun beseitigt. **Härtung erledigt (Findings 5–8):**
+Timezone auf `zoneinfo.ZoneInfo("Europe/Berlin")` (Winter-Anpfiffzeiten waren ~5 Monate/
+Saison 1 h falsch); `fit_dixon_coles`-Convergence-/Finitheits-Guard + ρ-Clamp (feuerte
+im Headline-Backtest nie → rein defensiv, 228 unverändert); `fetch_season`-TTL für die
+laufende Saison (abgeschlossene bleibt permanent); `submit_tips` verifiziert nach der
+Abgabe per Formular-Refetch, dass die Tipps wirklich gespeichert sind. **Damit ist der
+komplette korrektive Pass (Review-Findings 1–8) abgeschlossen — jeder inhaltliche
+Schluss hält.**
 
 ---
 

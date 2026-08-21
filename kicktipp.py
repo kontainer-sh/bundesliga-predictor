@@ -103,19 +103,33 @@ def kicktipp_points(tip_h: int, tip_a: int, real_h: int, real_a: int) -> int:
 # OpenLigaDB Datenabruf
 # ---------------------------------------------------------------------------
 
+SEASON_CACHE_HOURS = 12  # laufende (unfertige) Saison: Cache nach 12h neu laden
+
+
 def fetch_season(season: int, league: str = "bl1") -> list[dict]:
-    """Lädt alle Spieltage einer Saison (bl1=1. Liga, bl2=2. Liga), mit Dateicache."""
+    """Lädt alle Spieltage einer Saison (bl1=1. Liga, bl2=2. Liga), mit Dateicache.
+
+    Abgeschlossene Saison (alle Spiele beendet) → dauerhaft gecacht. Laufende
+    Saison → TTL (SEASON_CACHE_HOURS), damit lang laufende lokale Installationen
+    nicht auf einem frühen Saison-Snapshot hängen bleiben (Review-Finding 7).
+    """
     label = "1. BL" if league == "bl1" else "2. BL"
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / f"{league}_{season}.json"
 
     if cache_file.exists():
-        print(f"  {label} {season}/{season+1}: Cache", flush=True)
-        with open(cache_file) as f:
-            return json.load(f)
+        data = json.loads(cache_file.read_text())
+        complete = bool(data) and all(m.get("matchIsFinished") for m in data)
+        age_h = (datetime.now().timestamp() - cache_file.stat().st_mtime) / 3600
+        if complete or age_h < SEASON_CACHE_HOURS:
+            print(f"  {label} {season}/{season+1}: Cache", flush=True)
+            return data
+        print(f"  {label} {season}/{season+1}: Cache {age_h:.0f}h alt — lade neu...",
+              end=" ", flush=True)
+    else:
+        print(f"  Lade {label} {season}/{season+1}...", end=" ", flush=True)
 
     url = f"{OPENLIGADB}/getmatchdata/{league}/{season}"
-    print(f"  Lade {label} {season}/{season+1}...", end=" ", flush=True)
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
     matches = resp.json()
@@ -658,8 +672,21 @@ def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
     x0_free = np.concatenate([x0[1:n], x0[n:]])
     result = minimize(objective, x0_free, method="L-BFGS-B",
                       options={"maxiter": 500, "ftol": 1e-9})
+    if not result.success:
+        # Nicht abbrechen (L-BFGS-B meldet oft "success=False" trotz brauchbarem
+        # Optimum), aber sichtbar machen statt still weiterzurechnen.
+        print(f"  Warnung: DC-Fit nicht sauber konvergiert: {result.message}", flush=True)
 
     p_full = np.concatenate([[0.0], result.x[:(n-1)], result.x[(n-1):]])
+    if not np.all(np.isfinite(p_full)):
+        raise RuntimeError("DC-Fit lieferte nicht-finite Parameter — Abbruch statt "
+                           "stiller Fehlprognose.")
+
+    rho = float(p_full[2*n+1])
+    if abs(rho) > 0.2:  # jenseits dessen kann die DC-τ-Korrektur negativ werden
+        print(f"  Warnung: DC-ρ={rho:.3f} außerhalb [-0.2, 0.2] — geklemmt.", flush=True)
+        rho = float(np.clip(rho, -0.2, 0.2))
+
     attack = {t: p_full[i] for t, i in team_idx.items()}
     defense = {t: p_full[n + i] for t, i in team_idx.items()}
 
@@ -667,7 +694,7 @@ def fit_dixon_coles(matches: list[dict], ref_date: datetime) -> dict:
         "attack": attack,
         "defense": defense,
         "home_adv": p_full[2*n],
-        "rho": p_full[2*n+1],
+        "rho": rho,
         "teams": list(team_idx.keys()),
     }
 

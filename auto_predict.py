@@ -161,8 +161,9 @@ TEND_CLASS = {"Heimsieg": "tend-home", "Auswärtssieg": "tend-away", "Unentschie
 
 def _build_rows(fixtures, model, live_odds):
     """Bereitet Zeilendaten + Tagestrenner für das Template auf."""
-    from datetime import timedelta
+    from zoneinfo import ZoneInfo
     import kicktipp as kt
+    berlin = ZoneInfo("Europe/Berlin")  # DST-korrekt (MEZ im Winter, MESZ im Sommer)
 
     rows = []
     total_ev = 0.0
@@ -172,7 +173,7 @@ def _build_rows(fixtures, model, live_odds):
         kickoff = f.get("kickoff")
 
         if kickoff:
-            kickoff_local = kickoff + timedelta(hours=2)  # MESZ = UTC+2
+            kickoff_local = kickoff.astimezone(berlin)  # UTC → Ortszeit, DST-korrekt
             ko_str = f'{WOCHENTAGE[kickoff_local.weekday()]} {kickoff_local.strftime("%d.%m. %H:%M")}'
             date_key = kickoff_local.date()
         else:
