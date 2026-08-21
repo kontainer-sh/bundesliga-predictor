@@ -86,13 +86,14 @@ def main():
     import kicktipp as kt
 
     all_matches = kt.load_all_matches(season)
-    training = kt.training_split(all_matches, season, md)
+    ref_date = datetime.now(tz=timezone.utc)
+    training = kt.training_split(all_matches, season, md, ref_date=ref_date)
 
     if len(training) < kt.MIN_MATCHES:
         print(f"Zu wenig Trainingsdaten ({len(training)}).")
         return
 
-    model = kt.fit_dixon_coles(training, datetime.now(tz=timezone.utc))
+    model = kt.fit_dixon_coles(training, ref_date)
 
     live_odds = {}
     if os.environ.get("ODDS_API_KEY"):
