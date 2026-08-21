@@ -699,7 +699,44 @@ Pre-Closing-Ergebnis in der README-Tabelle — Reruns weichen ab (siehe 2026-08-
 
 ---
 
-## Backlog (aktualisiert 2026-08-20)
+## 2026-08-21 — Temporaler BL2-Leak im Trainings-Split gefixt (externer Review)
+
+**Befund (unabhängiger Review):** `training_split` schloss nur die laufende
+*BL1*-Saison ab dem Spieltag aus und behielt die **gesamte laufende BL2-Saison** —
+auch Spiele, die relativ zum vorhergesagten BL1-Spieltag chronologisch in der
+*Zukunft* liegen. Über das `time_weight`-Clamping (Zukunft → Alter 0 → Gewicht 1.0)
+bekamen diese künftigen BL2-Spiele sogar **maximales Gewicht**. Echter temporaler
+Leak (2. Ordnung: BL2-Teams sind nicht im BL1-Spieltag, kontaminieren aber die
+geteilten Parameter γ/ρ und künftige Aufsteiger-Ratings).
+
+**Fix:** `training_split` bekommt einen optionalen `ref_date`-Datums-Cutoff
+(`date >= ref_date` → raus), durchgereicht von jedem Produktions-/CLI-Aufrufer
+(dasselbe `ref_date` wie `fit_dixon_coles`). Schließt zusätzlich verschobene/
+vorverlegte Spiele korrekt. Der Cutoff vergleicht echte datetime, NICHT
+`date.year` (der alte Bug bis 2026-08). Regressionstest ergänzt.
+
+**Effekt (SP1–30 2024/25, 1X2-only wie `cmd_backtest`):**
+
+| Modus | vorher (kontaminiert) | nachher (leak-frei) |
+|---|---|---|
+| Nur Modell | 211 / 0.781 | **206 / 0.763** |
+| Modell + Quoten | 225 / 0.833 | **228 / 0.844** |
+
+Größenordnung wie erwartet klein (Einzelsaison-Rauschen; Modell-only −5, Blend +3
+— beide könnten saisonweise das Vorzeichen wechseln), aber die Vorher-Zahlen waren
+*kontaminiert*. Richtung (Markt ≥ Modell) unverändert.
+
+**Noch offen (nächste Schritte des korrektiven Passes):** (a) Forecast-Stack
+vereinheitlichen — `cmd_backtest` strippt O/U, Produktion nutzt es; die
+Experiment-Skripte (disagreement/λ-sweep/dm-test/…) tragen denselben Leak und
+werden mit ihrer Neurechnung gefixt; (b) Reverse-Fixture-Odds-Fallback entfernen;
+(c) danach die Validierungs-Zahlen (Disagreement 142/15.5 %, DM p=0.039) mit
+dependence-aware SE neu rechnen. Bis dahin bleiben die Zahlen im README-Abschnitt
+„Statistische Validierung" die alten.
+
+---
+
+## Backlog (aktualisiert 2026-08-21)
 
 1. ✅ **Standings-abhängige Varianz-Strategie** (weitgehend erledigt 2026-08-16) —
    `backtest_variance_strategy.py` mit kalibriertem, heterogenem Feld: Varianz-Tilt
@@ -711,10 +748,13 @@ Pre-Closing-Ergebnis in der README-Tabelle — Reruns weichen ab (siehe 2026-08-
    `fetch_odds_csv` nutzt jetzt die Closing-Line (PSCH) als Default; der
    DM-Test oben zeigt, dass Closing das Modell signifikant schlägt.
    Nachzug 2026-08-21: Auch die Over/Under-Rekonstruktion nutzt jetzt Closing
-   (`PC>2.5`, Fallback → `P>2.5`) statt weiterhin Pre-Closing — die
-   Closing-Umstellung hatte nur die 1X2-Spalten erfasst. Backtest davor/danach
-   (SP1–30 2024/25): 225 → 225, **null Punkt-Effekt** (O/U ist neutral); p_over
-   verschiebt sich real (Ø 0.023), nur die Quelle wird konsistent.
+   (`PC>2.5`, Fallback → `P>2.5`) statt Pre-Closing. **Korrektur (2026-08-21):**
+   Der damalige „225 → 225, null Effekt"-Nachweis war *irreführend* — die Zahl
+   bewegte sich nicht, weil Closing-O/U neutral wäre, sondern weil `cmd_backtest`
+   O/U ohnehin **strippt** (Z. ~1361, nur 1X2). Dass O/U auf Kicktipp-Punkten
+   ~neutral ist, gilt separat (Proxy-Test 2026-08-20, B−A n.s.), aber der
+   Headline-Backtest nutzt es gar nicht — Produktion dagegen schon. Diese
+   Stack-Inkonsistenz wird im nächsten Schritt behoben (Eintrag 2026-08-21 unten).
 3. **Isotone 1X2-Recalibration** (Wilkens 2026) — nur noch als billiger
    Bestätigungstest (isotoner Fit auf Rolling-Window), erwartetes Ergebnis:
    Null (siehe Literatur-Review Punkt 2). Schließt den Punkt so oder so.

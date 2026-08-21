@@ -794,14 +794,13 @@ def fit_recalibration(train_seasons: list[int], min_obs: int = 20) -> np.ndarray
             pass
 
         for md in range(1, 35):
-            training = training_split(all_matches, season, md)
-            if len(training) < MIN_MATCHES:
-                continue
-
             md_matches = [m for m in season_matches if m["matchday"] == md]
             if not md_matches:
                 continue
             ref_date = min(m["date"] for m in md_matches)
+            training = training_split(all_matches, season, md, ref_date=ref_date)
+            if len(training) < MIN_MATCHES:
+                continue
             model = fit_dixon_coles(training, ref_date)
 
             for m in md_matches:
@@ -880,21 +879,32 @@ def load_all_matches(season: int) -> list[dict]:
 
 
 def training_split(all_matches: list[dict], season: int, matchday: int,
-                   league: str = "bl1") -> list[dict]:
+                   league: str = "bl1", ref_date: datetime | None = None) -> list[dict]:
     """Trainingsmenge ohne Data-Leakage — die EINZIGE Quelle der Wahrheit.
 
-    Schließt die laufende `league`-Saison ab `matchday` aus und behält alles
-    andere (Vorsaisons, andere Liga, bereits gespielte Spieltage < matchday).
-    Backtest UND Produktion (auto_predict, cmd_predict) rufen ausschließlich
-    diese Funktion auf, damit die Split-Regel nicht erneut auseinanderdriftet.
+    Schließt zwei Dinge aus:
+    (1) die laufende `league`-Saison ab `matchday` (Saison-/Spieltag-Regel), und
+    (2) — wenn `ref_date` gesetzt ist — JEDES noch nicht angepfiffene Spiel
+        (`date >= ref_date`), auch aus der anderen Liga. Das schließt den
+        BL2-Zukunfts-Leak (laufende 2.-Liga-Spiele, die relativ zum
+        vorhergesagten BL1-Spieltag in der Zukunft liegen und über das
+        time_weight-Clamping sonst maximales Gewicht bekämen) sowie
+        verschobene/vorverlegte Spiele korrekt. `ref_date` sollte dasselbe
+        sein wie das an `fit_dixon_coles` übergebene (die „as-of"-Zeit).
 
-    WICHTIG: Split über m["season"], NICHT über m["date"].year — sonst fällt
-    die Rückrunde der Vorsaison (gleiches Kalenderjahr) fälschlich mit heraus
-    (Bug bis 2026-08, siehe EXPERIMENTS.md / git-History).
+    WICHTIG: Regel (1) läuft über m["season"], NICHT über m["date"].year — sonst
+    fällt die Rückrunde der Vorsaison (gleiches Kalenderjahr) fälschlich mit
+    heraus (Bug bis 2026-08). Der Datums-Cutoff (2) vergleicht echte datetime,
+    nie das Kalenderjahr. Siehe EXPERIMENTS.md / git-History.
     """
-    return [m for m in all_matches
-            if not (m["league"] == league and m["season"] == season
-                    and m["matchday"] >= matchday)]
+    out = []
+    for m in all_matches:
+        if m["league"] == league and m["season"] == season and m["matchday"] >= matchday:
+            continue
+        if ref_date is not None and m["date"] >= ref_date:
+            continue
+        out.append(m)
+    return out
 
 
 def tendency_str(h: int, a: int) -> str:
@@ -916,15 +926,16 @@ def cmd_predict(args):
 
     all_matches = load_all_matches(args.season)
 
-    # Nur Spiele vor aktuellem Spieltag dieser Saison als Training
-    training = training_split(all_matches, args.season, args.matchday)
+    # Nur Spiele vor dem Anpfiff dieser Saison als Training (Datums-Cutoff)
+    ref_date = datetime.now(tz=timezone.utc)
+    training = training_split(all_matches, args.season, args.matchday, ref_date=ref_date)
 
     if len(training) < MIN_MATCHES:
         print(f"Fehler: Nur {len(training)} Trainingsmatches – zu wenig.")
         sys.exit(1)
 
     print(f"\nTrainiere Dixon-Coles Modell auf {len(training)} Spielen...")
-    model = fit_dixon_coles(training, datetime.now(tz=timezone.utc))
+    model = fit_dixon_coles(training, ref_date)
 
     # Live-Quoten holen (optional)
     live_odds = {}
@@ -1020,15 +1031,15 @@ def cmd_calibration(args):
     skipped = 0
 
     for md in range(from_md, to_md + 1):
-        training = training_split(all_matches, season, md)
-        if len(training) < MIN_MATCHES:
-            continue
-
         md_matches = [m for m in season_matches if m["matchday"] == md]
         if not md_matches:
             continue
 
         ref_date = min(m["date"] for m in md_matches)
+        training = training_split(all_matches, season, md, ref_date=ref_date)
+        if len(training) < MIN_MATCHES:
+            continue
+
         model = fit_dixon_coles(training, ref_date)
 
         for m in md_matches:
@@ -1372,19 +1383,17 @@ def cmd_backtest(args):
     pts_distribution = {0: 0, 1: 0, 2: 0, 3: 0}
 
     for md in range(from_md, to_md + 1):
-        # Training: alles VOR diesem Spieltag
-        training = training_split(all_matches, season, md)
-
-        if len(training) < MIN_MATCHES:
-            print(f"  Spieltag {md:2d}: Übersprungen (nur {len(training)} Trainingsmatches)")
-            continue
-
-        # Modell trainieren
-        # Referenzdatum = erster Match des Spieltags
+        # Referenzdatum = erster Anpfiff des Spieltags; Training = alles davor
+        # (Datums-Cutoff schließt den BL2-Zukunfts-Leak)
         md_matches = [m for m in season_matches if m["matchday"] == md]
         if not md_matches:
             continue
         ref_date = min(m["date"] for m in md_matches)
+
+        training = training_split(all_matches, season, md, ref_date=ref_date)
+        if len(training) < MIN_MATCHES:
+            print(f"  Spieltag {md:2d}: Übersprungen (nur {len(training)} Trainingsmatches)")
+            continue
 
         model = fit_dixon_coles(training, ref_date)
 

@@ -10,8 +10,8 @@ Kombiniert ein **Dixon-Coles-Modell** (Teamstärke aus historischen Ergebnissen)
 
 | Modus | Punkte | Ø / Spiel |
 |---|---|---|
-| Nur Modell | 211 | 0.781 |
-| Modell + Quoten | **225** | **0.833** |
+| Nur Modell | 206 | 0.763 |
+| Modell + Quoten | **228** | **0.844** |
 
 Punkteschema: Tendenz 1, Tordifferenz/Remis 2, Exakt 3 (konfigurierbar im Code).
 
@@ -171,19 +171,19 @@ Bezogen auf Spieltag 1–30 der Saison 2024/25 (270 Spiele):
 
 ```
 Immer 2:1 tippen (uninformiert):        ~192 Pkt
-Unser Modell (mit Quoten):               225 Pkt
+Unser Modell (mit Quoten):               228 Pkt
 Poisson-Ceiling (aus H/D/A-Closing):     231 Pkt
 Geschätztes wahres Ceiling:             ~237–252 Pkt
 Perfektes Oracle:                        810 Pkt
 ```
 
 Das **Poisson-Ceiling** (231 Pkt) nutzt dieselbe Poisson-Rekonstruktion aus den
-H/D/A-Closing-Quoten wie unser Modell. Unser Modell schöpft dieses Ceiling zum größten
-Teil aus (225 von 231 ≈ 97%). Der 6-Punkte-Rest ist im Wesentlichen Einzelsaison-Rauschen
-des impropren Punktemaßes: Beim Wechsel von der Pre-Closing- auf die Closing-Line verschob
-sich das Poisson-Ceiling selbst kaum (232 → 231), die realisierten Modellpunkte schwankten
-dagegen von 231 auf 225 — genau die saisonweise Streuung, die der Diebold-Mariano-Test oben
-quantifiziert. Robust bleibt: Modell und Markt liegen auf Kicktipp-Punkten gleichauf.
+H/D/A-Closing-Quoten wie unser Modell. Unser Modell schöpft dieses Ceiling nahezu
+vollständig aus (228 von 231 ≈ 99%). Der kleine Rest ist Einzelsaison-Rauschen des
+impropren Punktemaßes: Die realisierten Modellpunkte schwanken um wenige Punkte, sobald
+sich Trainingsdaten (Leakage-Fix, siehe EXPERIMENTS.md 2026-08-21) oder Quotenquelle
+(Pre-Closing → Closing) ändern — genau die Größenordnung, die der Diebold-Mariano-Test
+oben quantifiziert. Robust bleibt: Modell und Markt liegen auf Kicktipp-Punkten gleichauf.
 
 Das **wahre Ceiling** mit Pinnacles internem Copula-Modell (volle Score-Verteilung aus Correct
 Score-Quoten) liegt jedoch höher. Correct Score-Quoten würden nicht die Tendenz-Trefferquote
@@ -191,7 +191,7 @@ verbessern (die kommt bereits aus H/D/A), sondern die Wahl des exakten Ergebniss
 der richtigen Tendenz — also mehr 3-Punkt- und 2-Punkt-Treffer statt 1-Punkt-Treffer.
 Grobe Abschätzung: +5–20 Punkte, also Ceiling bei ~237–252.
 
-Unser Modell nutzt damit **~55–75% des geschätzten wahren Spielraums**. Ohne Correct
+Unser Modell nutzt damit **~60–80% des geschätzten wahren Spielraums**. Ohne Correct
 Score-Quoten (nicht kostenlos verfügbar) lässt sich das nicht genauer bestimmen.
 Die Berechnung basiert auf einer einzelnen Saison (270 Spiele) und ist auf dem
 Kicktipp-Punkteschema entsprechend verrauscht.

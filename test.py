@@ -139,6 +139,8 @@ _ms = [
     _mk("cur-md3",   2026, "bl1", 3,  2026, 9),    # laufend, Spieltag 3
     _mk("cur-md7",   2026, "bl1", 7,  2026, 10),   # laufend, Spieltag 7
     _mk("cur-bl2",   2026, "bl2", 8,  2026, 8),    # laufend, 2. Liga (andere Liga)
+    _mk("cur-bl2-past",   2026, "bl2", 2,  2026, 8),   # laufende 2. Liga, Aug (Vergangenheit)
+    _mk("cur-bl2-future", 2026, "bl2", 20, 2026, 12),  # laufende 2. Liga, Dez (ZUKUNFT → Leak)
 ]
 
 def _ids(matches):
@@ -163,6 +165,16 @@ _buggy = _ids([m for m in _ms
                if not (m["matchday"] >= 1 and m["date"].year >= 2026)])
 check("Alter Bug hätte Vorsaison-Rückrunde verworfen", "vor-rueck" not in _buggy)
 check("Fix behält 324-Äquivalent (mehr als der Bug)", len(s1) > len(_buggy))
+
+# Datums-Cutoff (ref_date): schließt den BL2-Zukunfts-Leak (Review-Finding 2026-08-21)
+_cutoff = datetime(2026, 10, 1)
+s_cut = _ids(kt.training_split(_ms, 2026, 1, ref_date=_cutoff))
+check("Cutoff: künftiges BL2-Spiel (Dez) RAUS — der Leak", "cur-bl2-future" not in s_cut)
+check("Cutoff: vergangenes BL2-Spiel (Aug) bleibt", "cur-bl2-past" in s_cut)
+check("Cutoff: Vorsaison bleibt (kein date.year-Bug)",
+      "vor-hin" in s_cut and "vor-rueck" in s_cut)
+check("Ohne ref_date: künftiges BL2 bleibt drin (rückwärtskompatibel)",
+      "cur-bl2-future" in _ids(kt.training_split(_ms, 2026, 1)))
 print()
 
 # --- _odds_val Fallback-Kette (Closing → Pre-Closing → generisch) ---
