@@ -9,6 +9,10 @@ on:
         description: "Wirklich abgeben? (aus = Dry-Run, nur Anzeige)"
         type: boolean
         default: false
+      diagnose:
+        description: "Nur Formularstruktur ausgeben (sanitisiert, gibt nichts ab)"
+        type: boolean
+        default: false
   # schedule:
   #   - cron: "0 6 * * *"   # täglich 06:00 UTC; submit_tips.py gibt nur bei offenem Spieltag ab
 
@@ -35,4 +39,12 @@ jobs:
           KICKTIPP_COMMUNITY: ${{ secrets.KICKTIPP_COMMUNITY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         # Bei geplantem Lauf (schedule) immer Dry-Run, bis --submit hart gesetzt wird.
-        run: python submit_tips.py ${{ github.event.inputs.submit == 'true' && '--submit' || '' }}
+        # diagnose hat Vorrang und gibt nie ab.
+        run: |
+          if [ "${{ github.event.inputs.diagnose }}" = "true" ]; then
+            python submit_tips.py --diagnose
+          elif [ "${{ github.event.inputs.submit }}" = "true" ]; then
+            python submit_tips.py --submit
+          else
+            python submit_tips.py
+          fi

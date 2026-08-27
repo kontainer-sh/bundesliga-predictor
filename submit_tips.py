@@ -102,6 +102,51 @@ def fetch_form(session: requests.Session, community: str):
     return base_fields, games
 
 
+def diagnose_form(session: requests.Session, community: str) -> None:
+    """Gibt eine SANITISIERTE Struktur der /tippabgabe-Seite aus (für Debugging).
+
+    Bewusst KEIN Freitext, KEINE action/href/id-Attribute und KEIN Community-Slug
+    — nur Tag-/Klassen-Skelett, Input-Namensmuster (tippspielId → N), Werte der
+    Tipp-Felder (das sind die Modell-Tipps, ohnehin öffentlich) und readonly/disabled.
+    Damit lässt sich das Post-Submit-Layout gefahrlos in (öffentlichen) Logs ansehen.
+    """
+    r = session.get(f"{BASE}/{community}/tippabgabe", timeout=30)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    form = soup.find("form", action=f"/{community}/tippabgabe")
+    print(f"http_status: {r.status_code}")
+    print(f"form_tippabgabe_found: {form is not None}")
+    if form is None:
+        forms = soup.find_all("form")
+        print(f"forms_on_page: {len(forms)}")
+        for f in forms:
+            inputs = f.find_all("input")
+            names = {re.sub(r'\[\d+\]', '[N]', i.get('name', '')) for i in inputs}
+            print(f"  form: {len(inputs)} inputs, name-muster={sorted(n for n in names if n)[:8]}")
+        return
+
+    heim = form.find_all("input", attrs={"name": re.compile(r"\.heimTipp$")})
+    gast = form.find_all("input", attrs={"name": re.compile(r"\.gastTipp$")})
+    print(f"heimTipp_inputs: {len(heim)} | gastTipp_inputs: {len(gast)}")
+    for inp in heim[:4]:
+        print(f"  heim-input: type={inp.get('type')} "
+              f"readonly={inp.has_attr('readonly')} disabled={inp.has_attr('disabled')} "
+              f"value={inp.get('value')!r} class={inp.get('class')}")
+    rows = form.select("tbody tr")
+    print(f"tbody_tr_count: {len(rows)}")
+    for row in rows[:4]:
+        cells = []
+        for td in row.find_all("td", recursive=False):
+            cls = ".".join(td.get("class") or []) or "-"
+            marks = ""
+            if td.find("input"):
+                marks += "+input"
+            if td.find("select"):
+                marks += "+select"
+            cells.append(f"td[{cls}]{marks}")
+        print(f"  row: {cells}")
+
+
 def compute_model_tips(games):
     """Berechnet Modell-Tipps (Modell + Live-Odds) für die Formular-Spiele."""
     info = find_next_matchday()
@@ -131,6 +176,8 @@ def main():
                     help="Tipps WIRKLICH abgeben (sonst nur Dry-Run)")
     ap.add_argument("--overwrite", action="store_true",
                     help="auch bereits getippte Spiele überschreiben")
+    ap.add_argument("--diagnose", action="store_true",
+                    help="nur die (sanitisierte) Formularstruktur ausgeben, nichts abgeben")
     ap.add_argument("--community", default=os.environ.get("KICKTIPP_COMMUNITY"),
                     help="Kicktipp-Runde (Slug); Default aus KICKTIPP_COMMUNITY")
     args = ap.parse_args()
@@ -145,6 +192,10 @@ def main():
     session = requests.Session()
     session.headers["User-Agent"] = "kicktipp-autotip/1.0"
     login(session, email, password)
+
+    if args.diagnose:
+        diagnose_form(session, args.community)
+        return
 
     base_fields, games = fetch_form(session, args.community)
     tips, missing, label = compute_model_tips(games)
