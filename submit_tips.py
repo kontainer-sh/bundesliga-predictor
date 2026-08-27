@@ -19,6 +19,7 @@ import argparse
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 
 import requests
@@ -54,19 +55,21 @@ def login(session: requests.Session, email: str, password: str) -> None:
         raise SystemExit("Login fehlgeschlagen — KICKTIPP_EMAIL/PASSWORD prüfen.")
 
 
-def fetch_form(session: requests.Session, community: str):
-    """Holt das Tippabgabe-Formular des nächsten offenen Spieltags.
+def parse_form(html: str, community: str):
+    """Pure Parser: extrahiert (form_found, base_fields, games) aus HTML.
 
-    Gibt (base_fields, games) zurück:
-      base_fields: alle Formularfelder (hidden + submit) als name→value
-      games: Liste {tid, home, away, heim_field, gast_field, has_tip}
+    Wirft nicht — Fehlerfälle (kein Formular, keine Spiele) drückt es über
+    form_found bzw. eine leere games-Liste aus, damit die Aufrufer entscheiden
+    können (und der Parser testbar bleibt).
+
+    games: Liste {tid, home, away, heim_field, gast_field, has_tip}. `has_tip`
+    ist True, sobald ein Tippfeld einen Wert trägt — deckt sowohl bereits
+    getippte als auch nach der Abgabe zurückgelieferte (vorbefüllte) Formulare ab.
     """
-    r = session.get(f"{BASE}/{community}/tippabgabe", timeout=30)
-    r.raise_for_status()
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     form = soup.find("form", action=f"/{community}/tippabgabe")
     if form is None:
-        raise SystemExit("Tippabgabe-Formular nicht gefunden (eingeloggt? Runde korrekt?).")
+        return False, {}, []
 
     base_fields = {}
     for inp in form.find_all("input"):
@@ -97,9 +100,77 @@ def fetch_form(session: requests.Session, community: str):
             "has_tip": bool((heim_inp.get("value") or "").strip()
                             or (gast_inp.get("value") or "").strip()),
         })
-    if not games:
-        raise SystemExit("Keine offenen Spiele im Formular (Deadline vorbei?).")
-    return base_fields, games
+    return True, base_fields, games
+
+
+def fetch_form(session: requests.Session, community: str,
+               retries: int = 2, retry_wait: float = 3.0):
+    """Holt das Tippabgabe-Formular des nächsten offenen Spieltags.
+
+    Gibt (base_fields, games) zurück. Direkt nach einer Abgabe (oder bei drei
+    schnellen Logins hintereinander) liefert Kicktipp gelegentlich kurz eine
+    Seite ohne Spielzeilen (Rate-Limit/Interstitial); deshalb wird bei „keine
+    Spiele" ein paar Mal mit kurzer Pause neu geladen, bevor abgebrochen wird.
+    Bleibt es leer, ist die Deadline plausibel wirklich vorbei → SystemExit.
+    """
+    form_found = False
+    for attempt in range(retries + 1):
+        r = session.get(f"{BASE}/{community}/tippabgabe", timeout=30)
+        r.raise_for_status()
+        form_found, base_fields, games = parse_form(r.text, community)
+        if games:
+            return base_fields, games
+        if attempt < retries:
+            time.sleep(retry_wait)
+
+    if not form_found:
+        raise SystemExit("Tippabgabe-Formular nicht gefunden (eingeloggt? Runde korrekt?).")
+    raise SystemExit("Keine offenen Spiele im Formular (Deadline vorbei?).")
+
+
+def diagnose_form(session: requests.Session, community: str) -> None:
+    """Gibt eine SANITISIERTE Struktur der /tippabgabe-Seite aus (für Debugging).
+
+    Bewusst KEIN Freitext, KEINE action/href/id-Attribute und KEIN Community-Slug
+    — nur Tag-/Klassen-Skelett, Input-Namensmuster (tippspielId → N), Werte der
+    Tipp-Felder (das sind die Modell-Tipps, ohnehin öffentlich) und readonly/disabled.
+    Damit lässt sich das Post-Submit-Layout gefahrlos in (öffentlichen) Logs ansehen.
+    """
+    r = session.get(f"{BASE}/{community}/tippabgabe", timeout=30)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    form = soup.find("form", action=f"/{community}/tippabgabe")
+    print(f"http_status: {r.status_code}")
+    print(f"form_tippabgabe_found: {form is not None}")
+    if form is None:
+        forms = soup.find_all("form")
+        print(f"forms_on_page: {len(forms)}")
+        for f in forms:
+            inputs = f.find_all("input")
+            names = {re.sub(r'\[\d+\]', '[N]', i.get('name', '')) for i in inputs}
+            print(f"  form: {len(inputs)} inputs, name-muster={sorted(n for n in names if n)[:8]}")
+        return
+
+    heim = form.find_all("input", attrs={"name": re.compile(r"\.heimTipp$")})
+    gast = form.find_all("input", attrs={"name": re.compile(r"\.gastTipp$")})
+    print(f"heimTipp_inputs: {len(heim)} | gastTipp_inputs: {len(gast)}")
+    for inp in heim[:4]:
+        print(f"  heim-input: type={inp.get('type')} "
+              f"readonly={inp.has_attr('readonly')} disabled={inp.has_attr('disabled')} "
+              f"value={inp.get('value')!r} class={inp.get('class')}")
+    rows = form.select("tbody tr")
+    print(f"tbody_tr_count: {len(rows)}")
+    for row in rows[:4]:
+        cells = []
+        for td in row.find_all("td", recursive=False):
+            cls = ".".join(td.get("class") or []) or "-"
+            marks = ""
+            if td.find("input"):
+                marks += "+input"
+            if td.find("select"):
+                marks += "+select"
+            cells.append(f"td[{cls}]{marks}")
+        print(f"  row: {cells}")
 
 
 def compute_model_tips(games):
@@ -131,6 +202,8 @@ def main():
                     help="Tipps WIRKLICH abgeben (sonst nur Dry-Run)")
     ap.add_argument("--overwrite", action="store_true",
                     help="auch bereits getippte Spiele überschreiben")
+    ap.add_argument("--diagnose", action="store_true",
+                    help="nur die (sanitisierte) Formularstruktur ausgeben, nichts abgeben")
     ap.add_argument("--community", default=os.environ.get("KICKTIPP_COMMUNITY"),
                     help="Kicktipp-Runde (Slug); Default aus KICKTIPP_COMMUNITY")
     args = ap.parse_args()
@@ -145,6 +218,10 @@ def main():
     session = requests.Session()
     session.headers["User-Agent"] = "kicktipp-autotip/1.0"
     login(session, email, password)
+
+    if args.diagnose:
+        diagnose_form(session, args.community)
+        return
 
     base_fields, games = fetch_form(session, args.community)
     tips, missing, label = compute_model_tips(games)
@@ -184,7 +261,20 @@ def main():
     # Verifikation: HTTP 200 heißt nicht, dass die Tipps akzeptiert wurden (ein
     # Formular-/Schema-Wechsel könnte still ignorieren). Formular neu holen und
     # prüfen, dass die abgegebenen Spiele jetzt wirklich getippt sind.
-    _, games_after = fetch_form(session, args.community)
+    #
+    # WICHTIG: Ein erfolgreicher POST darf NICHT als "nicht abgegeben" gemeldet
+    # werden, nur weil das Nachlesen hakt. Direkt nach der Abgabe liefert Kicktipp
+    # gelegentlich kurz eine Seite ohne Spielzeilen; fetch_form wiederholt das
+    # bereits. Scheitert es trotzdem, ist das Ergebnis UNBESTÄTIGT (Warnung,
+    # exit 0) — nicht "fehlgeschlagen" (das wäre eine Falschmeldung).
+    try:
+        _, games_after = fetch_form(session, args.community)
+    except SystemExit:
+        print(f"\n⚠ {to_submit} Tipps abgeschickt (HTTP {resp.status_code}), aber die "
+              f"Verifikation konnte das Formular nicht neu lesen (Kicktipp lieferte "
+              f"keine Spielzeilen — evtl. Rate-Limit direkt nach der Abgabe). "
+              f"Sehr wahrscheinlich gespeichert; bitte in der App gegenprüfen.")
+        return
     after = {g["tid"]: g for g in games_after}
     saved = sum(1 for g in games
                 if not (g["has_tip"] and not args.overwrite)

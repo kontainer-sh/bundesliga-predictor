@@ -250,6 +250,47 @@ check("Saison/Liga/Spieltag korrekt",
 check("Datum geparst (Jahr 2026)", _pm[0]["date"].year == 2026)
 print()
 
+# --- submit_tips.parse_form (Formular-Parsing, robust gegen Post-Submit-Layout) ---
+print("submit_tips.parse_form:")
+import submit_tips as st
+
+def _row(tid, home, away, hv="", gv=""):
+    return (f'<tr><td class="nw kicktipp-time">Fr 20:30</td>'
+            f'<td class="nw">{home}</td><td class="nw">{away}</td>'
+            f'<td class="kicktipp-tippabgabe">'
+            f'<input name="spieltippForms[{tid}].heimTipp" value="{hv}">'
+            f'<input name="spieltippForms[{tid}].gastTipp" value="{gv}"></td>'
+            f'<td class="nw quoten">1.20</td></tr>')
+
+def _form(rows):
+    return ('<form action="/baeurer/tippabgabe">'
+            '<input type="hidden" name="csrf" value="tok">'
+            f'<table><tbody>{"".join(rows)}</tbody></table></form>')
+
+# Vor der Abgabe: leere Tippfelder → Spiele erkannt, has_tip False
+_f1, _b1, _g1 = st.parse_form(_form([_row(101, "FC Bayern München", "VfB Stuttgart")]), "baeurer")
+check("Formular gefunden", _f1 is True)
+check("1 Spiel geparst (leer)", len(_g1) == 1)
+check("Team-Namen korrekt", _g1[0]["home"] == "FC Bayern München" and _g1[0]["away"] == "VfB Stuttgart")
+check("tid extrahiert", _g1[0]["tid"] == "101")
+check("has_tip False bei leerem Feld", _g1[0]["has_tip"] is False)
+check("base_fields hat hidden, nicht die Tippfelder",
+      _b1.get("csrf") == "tok" and not any(".heimTipp" in k for k in _b1))
+
+# Nach der Abgabe: vorbefüllte Tippfelder → has_tip True (das war der Bug-Kern)
+_f2, _b2, _g2 = st.parse_form(_form([_row(101, "FC Bayern München", "VfB Stuttgart", "2", "0")]), "baeurer")
+check("has_tip True bei vorbefülltem Feld (Post-Submit)", _g2[0]["has_tip"] is True)
+
+# Falsches/kein Tippabgabe-Formular → form_found False, keine Spiele (kein Crash)
+_f3, _b3, _g3 = st.parse_form('<form action="/andere/seite"></form>', "baeurer")
+check("Fremdes Formular → form_found False", _f3 is False)
+check("Fremdes Formular → keine Spiele", _g3 == [])
+
+# Formular ohne Spielzeilen (Post-Submit-Interstitial) → gefunden, aber leer
+_f4, _b4, _g4 = st.parse_form('<form action="/baeurer/tippabgabe"></form>', "baeurer")
+check("Leeres Tippformular → gefunden, keine Spiele", _f4 is True and _g4 == [])
+print()
+
 # --- Ergebnis ---
 if errors == 0:
     print("Alle Tests bestanden.")
