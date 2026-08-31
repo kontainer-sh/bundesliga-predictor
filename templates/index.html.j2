@@ -55,6 +55,50 @@
     .match { font-size: 0.9em; }
     th, td { padding: 8px 6px; }
   }
+
+  /* --- Detail-Popup --- */
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #eef3fb; }
+  tr.clickable:focus { outline: 2px solid #3987e5; outline-offset: -2px; }
+  .detail-cue { color: #ccc; margin-left: 8px; font-weight: 700; }
+  tr.clickable:hover .detail-cue { color: #3987e5; }
+  .modal[hidden] { display: none; }
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex;
+           align-items: center; justify-content: center; padding: 16px; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
+  .modal-card { position: relative; background: #fff; border-radius: 10px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.28); padding: 22px 22px 24px;
+                max-width: 580px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-close { position: absolute; top: 8px; right: 12px; border: none;
+                 background: none; font-size: 1.7em; line-height: 1; color: #aaa;
+                 cursor: pointer; padding: 4px 8px; }
+  .modal-close:hover { color: #333; }
+  .modal-card h2 { font-size: 1.15em; margin-bottom: 2px; padding-right: 24px; }
+  .m-kick { color: #888; font-size: 0.82em; margin-bottom: 6px; }
+  .m-section-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em;
+                     color: #999; font-weight: 600; margin: 18px 0 8px; }
+  .tiles { display: flex; gap: 8px; }
+  .tile { flex: 1; text-align: center; padding: 9px 4px; border-radius: 6px; background: #f7f8fa; }
+  .tile .lbl { font-size: 0.7em; color: #777; }
+  .tile .val { font-size: 1.15em; font-weight: 700; margin-top: 2px; color: #333; }
+  .tile.win .val { color: #2563eb; }
+  .tile.draw .val { color: #7c3aed; }
+  .tile.loss .val { color: #dc2626; }
+  .tile.is-best { box-shadow: inset 0 0 0 2px currentColor; }
+  .heatwrap { display: flex; gap: 16px; flex-wrap: wrap; }
+  .heat { flex: 1; min-width: 220px; }
+  .heat h4 { font-size: 0.8em; color: #555; margin-bottom: 6px; font-weight: 600; }
+  table.hm { border-collapse: separate; border-spacing: 2px; width: 100%; }
+  table.hm th { padding: 1px; font-size: 0.66em; color: #999; text-transform: none;
+                letter-spacing: 0; border: none; text-align: center; font-weight: 600; }
+  table.hm td { padding: 0; border: none; }
+  .hm-corner { font-size: 0.58em; color: #bbb; }
+  .hm-cell { text-align: center; font-size: 0.72em; padding: 5px 2px; border-radius: 3px;
+             font-variant-numeric: tabular-nums; }
+  .hm-cell.hl { box-shadow: inset 0 0 0 2px #111; font-weight: 800; }
+  .m-axislabel { font-size: 0.64em; color: #aaa; text-align: center; margin-top: 4px; }
+  .m-take { margin-top: 14px; font-size: 0.9em; color: #444; background: #f7f8fa;
+            padding: 10px 12px; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -76,9 +120,9 @@
 {% for row in rows -%}
 {% if row.show_separator %}<tr class="day-sep"><td colspan="5"></td></tr>
 {% endif -%}
-<tr>
+<tr{% if row.detail %} class="clickable" data-idx="{{ loop.index0 }}" tabindex="0" role="button" aria-label="Details zu {{ row.home }} gegen {{ row.away }}"{% endif %}>
   <td class="kickoff">{{ row.kickoff_str }}</td>
-  <td class="match">{{ row.home }} – {{ row.away }}{% if row.has_odds %}<span class="odds-badge">&#9889; Odds</span>{% endif %}</td>
+  <td class="match">{{ row.home }} – {{ row.away }}{% if row.has_odds %}<span class="odds-badge">&#9889; Odds</span>{% endif %}{% if row.detail %}<span class="detail-cue" aria-hidden="true">&rsaquo;</span>{% endif %}</td>
 {%- if row.tip %}
   <td class="tip">{{ row.tip }}</td>
   <td class="ev">{{ "%.3f"|format(row.ev) }}</td>
@@ -95,7 +139,7 @@
 </tr>
 </tbody>
 </table>
-<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)</p>
+<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)<br>&rsaquo; Zeile anklicken f&uuml;r Details: Ergebnis-Matrix, Chancen &amp; Punkte-Optimierung</p>
 </div>
 
 <details class="method">
@@ -136,5 +180,99 @@ wird gewählt — analytisch exakt berechnet.</p>
   <a href="https://www.football-data.co.uk">football-data.co.uk</a>,
   <a href="https://the-odds-api.com">The Odds API</a>
 </footer>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <button class="modal-close" type="button" aria-label="Schließen">&times;</button>
+    <h2 id="m-title"></h2>
+    <p class="m-kick" id="m-kick"></p>
+    <div id="m-body"></div>
+  </div>
+</div>
+
+<script type="application/json" id="game-details">{{ details|tojson }}</script>
+<script>
+(function () {
+  var DETAILS = JSON.parse(document.getElementById('game-details').textContent);
+  // Validierte blaue Sequential-Ramp (dataviz), hell→dunkel; Text kippt bei i>=4 auf weiß.
+  var RAMP = ['#eef5fe', '#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#104281'];
+  function color(norm) {
+    var i = Math.max(0, Math.min(RAMP.length - 1, Math.round(norm * (RAMP.length - 1))));
+    return { bg: RAMP[i], fg: i >= 4 ? '#fff' : '#1a1a1a' };
+  }
+  function heatmap(title, grid, hlR, hlC, fmt, unit) {
+    var n = grid.length, max = 0, r, c, v;
+    for (r = 0; r < n; r++) for (c = 0; c < n; c++) if (grid[r][c] > max) max = grid[r][c];
+    var h = '<div class="heat"><h4>' + title + '</h4><table class="hm"><thead><tr>' +
+            '<th class="hm-corner">H\\A</th>';
+    for (c = 0; c < n; c++) h += '<th>' + c + '</th>';
+    h += '</tr></thead><tbody>';
+    for (r = 0; r < n; r++) {
+      h += '<tr><th>' + r + '</th>';
+      for (c = 0; c < n; c++) {
+        v = grid[r][c];
+        var col = color(max > 0 ? v / max : 0);
+        var hl = (r === hlR && c === hlC) ? ' hl' : '';
+        h += '<td><div class="hm-cell' + hl + '" style="background:' + col.bg +
+             ';color:' + col.fg + '" title="' + r + ':' + c + ' – ' + fmt(v) + unit +
+             '">' + fmt(v) + '</div></td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table><div class="m-axislabel">Zeile = Heim-Tore · Spalte = Auswärts-Tore</div></div>';
+    return h;
+  }
+  function tile(cls, lbl, val, best) {
+    return '<div class="tile ' + cls + (best ? ' is-best' : '') + '">' +
+           '<div class="lbl">' + lbl + '</div><div class="val">' + val + '</div></div>';
+  }
+  function render(d) {
+    document.getElementById('m-title').textContent = d.home + ' – ' + d.away;
+    document.getElementById('m-kick').textContent =
+      'Wahrscheinlichstes Ergebnis ' + d.mode[0] + ':' + d.mode[1] +
+      ' · Tipp ' + d.tip[0] + ':' + d.tip[1];
+    var w = d.wdl, e = d.tend_ev, bestE = Math.max(e[0], e[1], e[2]);
+    var chances = '<div class="tiles">' +
+      tile('win', 'Heimsieg', w[0] + '%') +
+      tile('draw', 'Unentschieden', w[1] + '%') +
+      tile('loss', 'Auswärtssieg', w[2] + '%') + '</div>';
+    var ertrag = '<div class="tiles">' +
+      tile('win', 'Sieg-Tipp', e[0].toFixed(2), e[0] === bestE) +
+      tile('draw', 'Remis-Tipp', e[1].toFixed(2), e[1] === bestE) +
+      tile('loss', 'Niederlage-Tipp', e[2].toFixed(2), e[2] === bestE) + '</div>';
+    var heats = '<div class="heatwrap">' +
+      heatmap('Ergebnis-Wahrscheinlichkeit (%)', d.probs, d.mode[0], d.mode[1],
+              function (v) { return v.toFixed(0); }, '%') +
+      heatmap('Erwartete Kicktipp-Punkte', d.ev, d.tip[0], d.tip[1],
+              function (v) { return v.toFixed(1); }, ' Pkt') + '</div>';
+    document.getElementById('m-body').innerHTML =
+      '<div class="m-section-title">Chancen (roh)</div>' + chances +
+      '<div class="m-section-title">Bester Ertrag je Tendenz — E[Pkt] (punkteoptimiert)</div>' + ertrag +
+      '<div class="m-section-title">Verteilung: roh vs. punkteoptimiert</div>' + heats +
+      '<div class="m-take">Das Remis kann bei den Chancen durchaus vorn liegen — als ' +
+      '<em>Tipp</em> gewinnt fast immer eine Sieg-Seite, weil ihr bester Punkte-Ertrag höher ist. ' +
+      'Der Tipp wird im 0–2-Raster gewählt.</div>';
+  }
+  var modal = document.getElementById('modal');
+  function open(i) { var d = DETAILS[i]; if (!d) return; render(d); modal.hidden = false; document.body.style.overflow = 'hidden'; }
+  function close() { modal.hidden = true; document.body.style.overflow = ''; }
+  var trs = document.querySelectorAll('tr.clickable'), k;
+  for (k = 0; k < trs.length; k++) {
+    (function (tr) {
+      var idx = parseInt(tr.dataset.idx, 10);
+      tr.addEventListener('click', function () { open(idx); });
+      tr.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(idx); }
+      });
+    })(trs[k]);
+  }
+  modal.querySelector('.modal-backdrop').addEventListener('click', close);
+  modal.querySelector('.modal-close').addEventListener('click', close);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
 </body>
 </html>

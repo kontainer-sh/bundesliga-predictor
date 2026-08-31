@@ -159,6 +159,45 @@ WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 TEND_CLASS = {"Heimsieg": "tend-home", "Auswärtssieg": "tend-away", "Unentschieden": "tend-draw"}
 
 
+def _game_detail(home, away, model, live_odds):
+    """Detail-Daten je Spiel für das Popup: rohe Ergebnis-Matrix, EV-Matrix,
+    W/U/N-Chancen und der beste EV je Tendenz (macht das Punkte-Optimum sichtbar).
+
+    Alles JSON-serialisierbar und kompakt gerundet. Die Matrizen decken 0..N-1
+    Tore je Team ab (Restmasse >N-1 Tore ist vernachlässigbar); die Tendenz-
+    Chancen kommen aus der VOLLEN Matrix, sind also exakt."""
+    import numpy as np
+    import kicktipp as kt
+
+    mat = kt.tip_score_matrix(home, away, model, live_odds or None)
+    evm = kt.ev_matrix(mat)
+    ph, px, pa = kt._tendency_probs(mat)
+    N = 6  # Anzeige 0..5 Tore
+    mtg = kt.MAX_TIP_GOALS
+
+    # Bester EV je Tendenz innerhalb des Tipp-Raums (0..MAX_TIP_GOALS) — zeigt,
+    # warum z. B. ein Remis nie getippt wird, obwohl P(Remis) beträchtlich ist.
+    best = {"home": 0.0, "draw": 0.0, "away": 0.0}
+    for th in range(mtg + 1):
+        for ta in range(mtg + 1):
+            e = float(evm[th, ta])
+            key = "home" if th > ta else ("draw" if th == ta else "away")
+            best[key] = max(best[key], e)
+
+    tip = np.unravel_index(evm[:mtg + 1, :mtg + 1].argmax(), (mtg + 1, mtg + 1))
+    mode = np.unravel_index(mat.argmax(), mat.shape)
+    return {
+        "home": home, "away": away,
+        "wdl": [round(ph * 100, 1), round(px * 100, 1), round(pa * 100, 1)],
+        "tend_ev": [round(best["home"], 2), round(best["draw"], 2), round(best["away"], 2)],
+        "tip": [int(tip[0]), int(tip[1])],
+        "mode": [int(mode[0]), int(mode[1])],
+        "probs": [[round(float(mat[i, j]) * 100, 1) for j in range(N)] for i in range(N)],
+        "ev": [[round(float(evm[i, j]), 2) for j in range(N)] for i in range(N)],
+        "n": N,
+    }
+
+
 def _build_rows(fixtures, model, live_odds):
     """Bereitet Zeilendaten + Tagestrenner für das Template auf."""
     from zoneinfo import ZoneInfo
@@ -185,7 +224,8 @@ def _build_rows(fixtures, model, live_odds):
 
         row = {"kickoff_str": ko_str, "home": home, "away": away,
                "show_separator": show_separator, "has_odds": False,
-               "tip": None, "ev": None, "tend": None, "tend_class": None}
+               "tip": None, "ev": None, "tend": None, "tend_class": None,
+               "detail": None}
 
         if home in model["attack"] and away in model["attack"]:
             th, ta, ev = kt.compute_tip(home, away, model, live_odds or None)
@@ -193,7 +233,8 @@ def _build_rows(fixtures, model, live_odds):
             tend = kt.tendency_str(th, ta)
             row.update(tip=f"{th}:{ta}", ev=ev, tend=tend,
                        tend_class=TEND_CLASS[tend],
-                       has_odds=kt._find_odds(live_odds, home, away) is not None)
+                       has_odds=kt._find_odds(live_odds, home, away) is not None,
+                       detail=_game_detail(home, away, model, live_odds))
         rows.append(row)
 
     return rows, total_ev
@@ -222,6 +263,7 @@ def _generate_html(md, season, fixtures, model, live_odds, match_date):
         match_date_str=match_date.strftime("%d.%m.%Y %H:%M"),
         now_str=datetime.now().strftime("%d.%m.%Y %H:%M"),
         rows=rows, total_ev=total_ev,
+        details=[r["detail"] for r in rows],
         points={"exact": kt.POINTS_EXACT, "goal_diff": kt.POINTS_GOAL_DIFF,
                 "draw_tendency": kt.POINTS_DRAW_TENDENCY, "tendency": kt.POINTS_TENDENCY},
     )
