@@ -870,9 +870,15 @@ def fit_recalibration(train_seasons: list[int], min_obs: int = 20) -> np.ndarray
     return correction
 
 
-def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None,
-                correction_table: np.ndarray = None):
-    """Berechnet den optimalen Tipp — mit Quoten und optionaler Recalibration."""
+def tip_score_matrix(home: str, away: str, model: dict, odds_dict: dict = None,
+                     correction_table: np.ndarray = None) -> np.ndarray:
+    """Die Ergebnis-Wahrscheinlichkeitsmatrix, auf der der Tipp beruht.
+
+    Reines Dixon-Coles, sofern keine Quoten vorliegen; sonst die mit den Quoten
+    gemischte (ODDS_WEIGHT) und renormierte Matrix — exakt wie in compute_tip.
+    Herausgezogen, damit Aufrufer (z. B. die Detail-Ansicht der Website) dieselbe
+    Verteilung bekommen, aus der der Tipp stammt, ohne die Mischlogik zu duplizieren.
+    """
     od = _find_odds(odds_dict, home, away) if odds_dict else None
     if od:
         odds_mat = odds_to_score_matrix(od["p_home"], od["p_draw"], od["p_away"],
@@ -885,8 +891,19 @@ def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None,
 
     if correction_table is not None:
         combined = recalibrate_score_matrix(combined, correction_table)
+    return combined
 
-    ev = np.einsum("ra,tpra->tp", combined, _POINTS_TABLE)
+
+def ev_matrix(score_mat: np.ndarray) -> np.ndarray:
+    """E[Kicktipp-Punkte] je Tipp (th, ta) für eine gegebene Ergebnis-Matrix."""
+    return np.einsum("ra,tpra->tp", score_mat, _POINTS_TABLE)
+
+
+def compute_tip(home: str, away: str, model: dict, odds_dict: dict = None,
+                correction_table: np.ndarray = None):
+    """Berechnet den optimalen Tipp — mit Quoten und optionaler Recalibration."""
+    combined = tip_score_matrix(home, away, model, odds_dict, correction_table)
+    ev = ev_matrix(combined)
     ev_clipped = ev[:MAX_TIP_GOALS + 1, :MAX_TIP_GOALS + 1]
     idx = np.unravel_index(ev_clipped.argmax(), ev_clipped.shape)
     return idx[0], idx[1], ev_clipped[idx]
