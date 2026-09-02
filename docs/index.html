@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bundesliga Tipps Spieltag 1 — Saison 2026/2027</title>
-<meta name="description" content="Statistisch optimierte Bundesliga-Tipps für Spieltag 1 (Saison 2026/2027). Dixon-Coles-Modell kombiniert mit Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag.">
+<title>Bundesliga Tipps Spieltag 2 — Saison 2026/2027</title>
+<meta name="description" content="Statistisch optimierte Bundesliga-Tipps für Spieltag 2 (Saison 2026/2027). Dixon-Coles-Modell kombiniert mit Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://kontainer.sh/bundesliga-predictor/">
-<meta property="og:title" content="Bundesliga Tipps Spieltag 1 — Saison 2026/2027">
-<meta property="og:description" content="Statistisch optimierte Bundesliga-Tipps für Spieltag 1 (Saison 2026/2027). Dixon-Coles-Modell kombiniert mit Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag.">
+<meta property="og:title" content="Bundesliga Tipps Spieltag 2 — Saison 2026/2027">
+<meta property="og:description" content="Statistisch optimierte Bundesliga-Tipps für Spieltag 2 (Saison 2026/2027). Dixon-Coles-Modell kombiniert mit Pinnacle-Wettquoten. Aktualisiert vor jedem Spieltag.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://kontainer.sh/bundesliga-predictor/">
 <style>
@@ -55,15 +55,59 @@
     .match { font-size: 0.9em; }
     th, td { padding: 8px 6px; }
   }
+
+  /* --- Detail-Popup --- */
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #eef3fb; }
+  tr.clickable:focus { outline: 2px solid #3987e5; outline-offset: -2px; }
+  .detail-cue { color: #ccc; margin-left: 8px; font-weight: 700; }
+  tr.clickable:hover .detail-cue { color: #3987e5; }
+  .modal[hidden] { display: none; }
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex;
+           align-items: center; justify-content: center; padding: 16px; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
+  .modal-card { position: relative; background: #fff; border-radius: 10px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.28); padding: 22px 22px 24px;
+                max-width: 580px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-close { position: absolute; top: 8px; right: 12px; border: none;
+                 background: none; font-size: 1.7em; line-height: 1; color: #aaa;
+                 cursor: pointer; padding: 4px 8px; }
+  .modal-close:hover { color: #333; }
+  .modal-card h2 { font-size: 1.15em; margin-bottom: 2px; padding-right: 24px; }
+  .m-kick { color: #888; font-size: 0.82em; margin-bottom: 6px; }
+  .m-section-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em;
+                     color: #999; font-weight: 600; margin: 18px 0 8px; }
+  .tiles { display: flex; gap: 8px; }
+  .tile { flex: 1; text-align: center; padding: 9px 4px; border-radius: 6px; background: #f7f8fa; }
+  .tile .lbl { font-size: 0.7em; color: #777; }
+  .tile .val { font-size: 1.15em; font-weight: 700; margin-top: 2px; color: #333; }
+  .tile.win .val { color: #2563eb; }
+  .tile.draw .val { color: #7c3aed; }
+  .tile.loss .val { color: #dc2626; }
+  .tile.is-best { box-shadow: inset 0 0 0 2px currentColor; }
+  .heatwrap { display: flex; gap: 16px; flex-wrap: wrap; }
+  .heat { flex: 1; min-width: 220px; }
+  .heat h4 { font-size: 0.8em; color: #555; margin-bottom: 6px; font-weight: 600; }
+  table.hm { border-collapse: separate; border-spacing: 2px; width: 100%; }
+  table.hm th { padding: 1px; font-size: 0.66em; color: #999; text-transform: none;
+                letter-spacing: 0; border: none; text-align: center; font-weight: 600; }
+  table.hm td { padding: 0; border: none; }
+  .hm-corner { font-size: 0.58em; color: #bbb; }
+  .hm-cell { text-align: center; font-size: 0.72em; padding: 5px 2px; border-radius: 3px;
+             font-variant-numeric: tabular-nums; }
+  .hm-cell.hl { box-shadow: inset 0 0 0 2px #111; font-weight: 800; }
+  .m-axislabel { font-size: 0.64em; color: #aaa; text-align: center; margin-top: 4px; }
+  .m-take { margin-top: 14px; font-size: 0.9em; color: #444; background: #f7f8fa;
+            padding: 10px 12px; border-radius: 6px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Bundesliga Tipps <span>Spieltag 1</span></h1>
+  <h1>Bundesliga Tipps <span>Spieltag 2</span></h1>
   <p class="subtitle">Saison 2026/2027</p>
   <p class="meta">
-    Anpfiff: 30.08.2026 15:30 UTC &middot;
-    Aktualisiert: 30.08.2026 13:32 UTC
+    Anpfiff: 04.09.2026 18:30 UTC &middot;
+    Aktualisiert: 02.09.2026 11:40 UTC
   </p>
 </header>
 
@@ -73,69 +117,69 @@
 <tr><th>Anpfiff</th><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
 </thead>
 <tbody>
-<tr>
-  <td class="kickoff">Fr 28.08. 20:30</td>
-  <td class="match">FC Bayern München – VfB Stuttgart</td>
+<tr class="clickable" data-idx="0" tabindex="0" role="button" aria-label="Details zu VfB Stuttgart gegen 1. FC Köln">
+  <td class="kickoff">Fr 04.09. 20:30</td>
+  <td class="match">VfB Stuttgart – 1. FC Köln<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">2:1</td>
-  <td class="ev">0.982</td>
+  <td class="ev">0.960</td>
   <td class="tend tend-home">Heimsieg</td>
 </tr>
 <tr class="day-sep"><td colspan="5"></td></tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 15:30</td>
-  <td class="match">RB Leipzig – Borussia Mönchengladbach</td>
-  <td class="tip">2:1</td>
-  <td class="ev">0.909</td>
-  <td class="tend tend-home">Heimsieg</td>
-</tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 15:30</td>
-  <td class="match">1. FSV Mainz 05 – SC Paderborn 07</td>
-  <td class="tip">2:1</td>
-  <td class="ev">0.923</td>
-  <td class="tend tend-home">Heimsieg</td>
-</tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 15:30</td>
-  <td class="match">1. FC Union Berlin – Eintracht Frankfurt</td>
+<tr class="clickable" data-idx="1" tabindex="0" role="button" aria-label="Details zu TSG Hoffenheim gegen Borussia Dortmund">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">TSG Hoffenheim – Borussia Dortmund<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">1:2</td>
-  <td class="ev">0.724</td>
+  <td class="ev">0.763</td>
   <td class="tend tend-away">Auswärtssieg</td>
 </tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 15:30</td>
-  <td class="match">1. FC Köln – TSG Hoffenheim</td>
-  <td class="tip">1:2</td>
-  <td class="ev">0.734</td>
-  <td class="tend tend-away">Auswärtssieg</td>
-</tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 15:30</td>
-  <td class="match">SV 07 Elversberg – Bayer 04 Leverkusen</td>
-  <td class="tip">1:2</td>
-  <td class="ev">0.910</td>
-  <td class="tend tend-away">Auswärtssieg</td>
-</tr>
-<tr>
-  <td class="kickoff">Sa 29.08. 18:30</td>
-  <td class="match">Borussia Dortmund – Hamburger SV</td>
+<tr class="clickable" data-idx="2" tabindex="0" role="button" aria-label="Details zu Bayer 04 Leverkusen gegen 1. FC Union Berlin">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">Bayer 04 Leverkusen – 1. FC Union Berlin<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">2:1</td>
-  <td class="ev">1.010</td>
+  <td class="ev">0.993</td>
   <td class="tend tend-home">Heimsieg</td>
+</tr>
+<tr class="clickable" data-idx="3" tabindex="0" role="button" aria-label="Details zu Borussia Mönchengladbach gegen SV 07 Elversberg">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">Borussia Mönchengladbach – SV 07 Elversberg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">1:0</td>
+  <td class="ev">0.834</td>
+  <td class="tend tend-home">Heimsieg</td>
+</tr>
+<tr class="clickable" data-idx="4" tabindex="0" role="button" aria-label="Details zu SV Werder Bremen gegen RB Leipzig">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">SV Werder Bremen – RB Leipzig<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">1:2</td>
+  <td class="ev">0.863</td>
+  <td class="tend tend-away">Auswärtssieg</td>
+</tr>
+<tr class="clickable" data-idx="5" tabindex="0" role="button" aria-label="Details zu SC Paderborn 07 gegen SC Freiburg">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">SC Paderborn 07 – SC Freiburg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">1:2</td>
+  <td class="ev">0.781</td>
+  <td class="tend tend-away">Auswärtssieg</td>
+</tr>
+<tr class="clickable" data-idx="6" tabindex="0" role="button" aria-label="Details zu FC Schalke 04 gegen FC Bayern München">
+  <td class="kickoff">Sa 05.09. 18:30</td>
+  <td class="match">FC Schalke 04 – FC Bayern München<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">0:2</td>
+  <td class="ev">1.168</td>
+  <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="day-sep"><td colspan="5"></td></tr>
-<tr>
-  <td class="kickoff">So 30.08. 15:30</td>
-  <td class="match">SC Freiburg – SV Werder Bremen<span class="odds-badge">&#9889; Odds</span></td>
-  <td class="tip">1:0</td>
-  <td class="ev">0.900</td>
-  <td class="tend tend-home">Heimsieg</td>
+<tr class="clickable" data-idx="7" tabindex="0" role="button" aria-label="Details zu Hamburger SV gegen 1. FSV Mainz 05">
+  <td class="kickoff">So 06.09. 15:30</td>
+  <td class="match">Hamburger SV – 1. FSV Mainz 05<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">0:1</td>
+  <td class="ev">0.707</td>
+  <td class="tend tend-away">Auswärtssieg</td>
 </tr>
-<tr>
-  <td class="kickoff">So 30.08. 17:30</td>
-  <td class="match">FC Augsburg – FC Schalke 04<span class="odds-badge">&#9889; Odds</span></td>
-  <td class="tip">1:0</td>
-  <td class="ev">0.811</td>
+<tr class="clickable" data-idx="8" tabindex="0" role="button" aria-label="Details zu Eintracht Frankfurt gegen FC Augsburg">
+  <td class="kickoff">So 06.09. 17:30</td>
+  <td class="match">Eintracht Frankfurt – FC Augsburg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">2:1</td>
+  <td class="ev">0.832</td>
   <td class="tend tend-home">Heimsieg</td>
 </tr>
 <tr style="border-top:2px solid #e5e5e5">
@@ -145,7 +189,7 @@
 </tr>
 </tbody>
 </table>
-<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)</p>
+<p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)<br>&rsaquo; Zeile anklicken f&uuml;r Details: Ergebnis-Matrix, Chancen &amp; Punkte-Optimierung</p>
 </div>
 
 <details class="method">
@@ -186,5 +230,99 @@ wird gewählt — analytisch exakt berechnet.</p>
   <a href="https://www.football-data.co.uk">football-data.co.uk</a>,
   <a href="https://the-odds-api.com">The Odds API</a>
 </footer>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <button class="modal-close" type="button" aria-label="Schließen">&times;</button>
+    <h2 id="m-title"></h2>
+    <p class="m-kick" id="m-kick"></p>
+    <div id="m-body"></div>
+  </div>
+</div>
+
+<script type="application/json" id="game-details">[{"away": "1. FC K\u00f6ln", "ev": [[0.43, 0.31, 0.23, 0.19, 0.17, 0.17], [0.94, 0.48, 0.32, 0.23, 0.19, 0.17], [0.92, 0.96, 0.44, 0.29, 0.22, 0.18], [0.83, 0.9, 0.9, 0.4, 0.28, 0.21], [0.74, 0.8, 0.85, 0.87, 0.39, 0.28], [0.68, 0.72, 0.77, 0.83, 0.86, 0.39]], "home": "VfB Stuttgart", "mode": [2, 1], "n": 6, "probs": [[3.8, 3.8, 2.1, 0.7, 0.2, 0.0], [8.0, 8.8, 4.7, 1.7, 0.4, 0.1], [9.1, 9.7, 5.2, 1.9, 0.5, 0.1], [6.8, 7.3, 3.9, 1.4, 0.4, 0.1], [3.8, 4.1, 2.2, 0.8, 0.2, 0.0], [1.8, 1.9, 1.0, 0.4, 0.1, 0.0]], "tend_ev": [0.96, 0.48, 0.32], "tip": [2, 1], "wdl": [63.8, 19.4, 16.8]}, {"away": "Borussia Dortmund", "ev": [[0.54, 0.76, 0.66, 0.56, 0.5, 0.47], [0.54, 0.6, 0.76, 0.64, 0.54, 0.49], [0.43, 0.54, 0.55, 0.71, 0.61, 0.53], [0.35, 0.42, 0.5, 0.5, 0.68, 0.6], [0.32, 0.34, 0.4, 0.48, 0.49, 0.67], [0.3, 0.31, 0.34, 0.39, 0.47, 0.49]], "home": "TSG Hoffenheim", "mode": [1, 1], "n": 6, "probs": [[5.4, 8.3, 7.0, 3.9, 1.6, 0.6], [6.7, 11.2, 9.1, 5.1, 2.2, 0.8], [4.4, 7.2, 6.0, 3.4, 1.4, 0.5], [1.9, 3.1, 2.6, 1.5, 0.6, 0.2], [0.6, 1.0, 0.9, 0.5, 0.2, 0.1], [0.2, 0.3, 0.2, 0.1, 0.1, 0.0]], "tend_ev": [0.54, 0.6, 0.76], "tip": [1, 2], "wdl": [30.1, 24.3, 45.6]}, {"away": "1. FC Union Berlin", "ev": [[0.42, 0.28, 0.2, 0.16, 0.15, 0.15], [0.98, 0.46, 0.28, 0.19, 0.16, 0.15], [0.97, 0.99, 0.42, 0.26, 0.18, 0.16], [0.87, 0.94, 0.93, 0.39, 0.24, 0.18], [0.78, 0.84, 0.89, 0.9, 0.38, 0.24], [0.71, 0.75, 0.8, 0.87, 0.9, 0.38]], "home": "Bayer 04 Leverkusen", "mode": [2, 0], "n": 6, "probs": [[4.1, 3.7, 1.8, 0.6, 0.1, 0.0], [8.8, 8.8, 4.2, 1.3, 0.3, 0.1], [10.2, 9.8, 4.7, 1.5, 0.4, 0.1], [7.7, 7.4, 3.6, 1.1, 0.3, 0.1], [4.4, 4.2, 2.0, 0.6, 0.2, 0.0], [2.0, 1.9, 0.9, 0.3, 0.1, 0.0]], "tend_ev": [0.99, 0.46, 0.28], "tip": [2, 1], "wdl": [66.6, 18.9, 14.5]}, {"away": "SV 07 Elversberg", "ev": [[0.54, 0.47, 0.36, 0.29, 0.26, 0.25], [0.83, 0.6, 0.47, 0.34, 0.28, 0.26], [0.75, 0.83, 0.54, 0.43, 0.33, 0.28], [0.63, 0.72, 0.77, 0.5, 0.41, 0.32], [0.56, 0.61, 0.68, 0.74, 0.49, 0.4], [0.52, 0.54, 0.59, 0.66, 0.74, 0.48]], "home": "Borussia M\u00f6nchengladbach", "mode": [1, 1], "n": 6, "probs": [[6.0, 6.4, 3.7, 1.4, 0.4, 0.1], [9.7, 11.4, 6.4, 2.4, 0.7, 0.2], [8.5, 9.6, 5.5, 2.1, 0.6, 0.1], [4.9, 5.5, 3.1, 1.2, 0.3, 0.1], [2.1, 2.4, 1.3, 0.5, 0.1, 0.0], [0.7, 0.8, 0.5, 0.2, 0.1, 0.0]], "tend_ev": [0.83, 0.6, 0.47], "tip": [1, 0], "wdl": [50.6, 24.2, 25.2]}, {"away": "RB Leipzig", "ev": [[0.51, 0.86, 0.78, 0.67, 0.6, 0.56], [0.43, 0.57, 0.86, 0.76, 0.65, 0.58], [0.33, 0.44, 0.52, 0.8, 0.71, 0.63], [0.27, 0.32, 0.4, 0.48, 0.77, 0.7], [0.24, 0.26, 0.3, 0.38, 0.46, 0.77], [0.24, 0.24, 0.26, 0.3, 0.38, 0.46]], "home": "SV Werder Bremen", "mode": [1, 1], "n": 6, "probs": [[5.2, 9.1, 8.5, 5.2, 2.4, 0.9], [5.6, 10.8, 9.8, 6.0, 2.8, 1.0], [3.3, 6.1, 5.6, 3.5, 1.6, 0.6], [1.3, 2.3, 2.2, 1.3, 0.6, 0.2], [0.4, 0.7, 0.6, 0.4, 0.2, 0.1], [0.1, 0.2, 0.1, 0.1, 0.0, 0.0]], "tend_ev": [0.44, 0.57, 0.86], "tip": [1, 2], "wdl": [23.4, 23.1, 53.5]}, {"away": "SC Freiburg", "ev": [[0.55, 0.78, 0.68, 0.57, 0.51, 0.48], [0.52, 0.61, 0.78, 0.66, 0.55, 0.5], [0.41, 0.52, 0.55, 0.72, 0.62, 0.54], [0.33, 0.4, 0.48, 0.51, 0.69, 0.61], [0.3, 0.33, 0.38, 0.46, 0.49, 0.69], [0.29, 0.3, 0.32, 0.37, 0.45, 0.49]], "home": "SC Paderborn 07", "mode": [1, 1], "n": 6, "probs": [[5.8, 9.0, 7.6, 4.1, 1.7, 0.6], [6.8, 11.5, 9.3, 5.1, 2.1, 0.7], [4.3, 7.0, 5.8, 3.2, 1.3, 0.4], [1.8, 2.9, 2.4, 1.3, 0.5, 0.2], [0.6, 0.9, 0.8, 0.4, 0.2, 0.1], [0.1, 0.2, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.52, 0.61, 0.78], "tip": [1, 2], "wdl": [28.7, 24.6, 46.6]}, {"away": "FC Bayern M\u00fcnchen", "ev": [[0.27, 1.11, 1.17, 1.12, 1.03, 0.94], [0.12, 0.29, 1.1, 1.12, 1.06, 0.98], [0.07, 0.11, 0.26, 1.04, 1.06, 1.02], [0.06, 0.07, 0.1, 0.24, 1.02, 1.05], [0.06, 0.06, 0.07, 0.1, 0.24, 1.02], [0.05, 0.06, 0.06, 0.07, 0.1, 0.24]], "home": "FC Schalke 04", "mode": [0, 2], "n": 6, "probs": [[3.3, 8.9, 12.4, 11.6, 8.2, 4.8], [1.9, 5.5, 7.6, 7.3, 5.3, 3.2], [0.6, 1.7, 2.4, 2.4, 1.8, 1.1], [0.1, 0.4, 0.5, 0.5, 0.4, 0.3], [0.0, 0.1, 0.1, 0.1, 0.1, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tend_ev": [0.12, 0.29, 1.17], "tip": [0, 2], "wdl": [5.5, 11.8, 82.7]}, {"away": "1. FSV Mainz 05", "ev": [[0.61, 0.71, 0.58, 0.47, 0.42, 0.4], [0.62, 0.66, 0.69, 0.55, 0.46, 0.41], [0.49, 0.61, 0.59, 0.63, 0.52, 0.44], [0.4, 0.47, 0.55, 0.54, 0.61, 0.51], [0.35, 0.38, 0.44, 0.53, 0.54, 0.61], [0.34, 0.35, 0.37, 0.43, 0.53, 0.53]], "home": "Hamburger SV", "mode": [1, 1], "n": 6, "probs": [[7.7, 10.0, 6.9, 3.1, 1.1, 0.3], [9.1, 12.7, 8.5, 3.8, 1.3, 0.4], [5.7, 7.7, 5.2, 2.4, 0.8, 0.2], [2.4, 3.2, 2.1, 1.0, 0.3, 0.1], [0.7, 1.0, 0.7, 0.3, 0.1, 0.0], [0.2, 0.2, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.62, 0.66, 0.71], "tip": [0, 1], "wdl": [33.7, 26.7, 39.5]}, {"away": "FC Augsburg", "ev": [[0.51, 0.46, 0.36, 0.3, 0.27, 0.26], [0.82, 0.57, 0.47, 0.35, 0.29, 0.27], [0.75, 0.83, 0.52, 0.43, 0.34, 0.28], [0.64, 0.73, 0.77, 0.48, 0.41, 0.33], [0.57, 0.62, 0.69, 0.74, 0.46, 0.41], [0.53, 0.56, 0.6, 0.67, 0.74, 0.46]], "home": "Eintracht Frankfurt", "mode": [1, 1], "n": 6, "probs": [[4.8, 5.6, 3.5, 1.5, 0.5, 0.1], [8.3, 10.6, 6.5, 2.7, 0.8, 0.2], [7.7, 9.6, 6.0, 2.5, 0.8, 0.2], [4.7, 5.9, 3.7, 1.5, 0.5, 0.1], [2.2, 2.7, 1.7, 0.7, 0.2, 0.1], [0.8, 1.0, 0.6, 0.3, 0.1, 0.0]], "tend_ev": [0.83, 0.57, 0.47], "tip": [2, 1], "wdl": [51.3, 23.1, 25.6]}]</script>
+<script>
+(function () {
+  var DETAILS = JSON.parse(document.getElementById('game-details').textContent);
+  // Validierte blaue Sequential-Ramp (dataviz), hell→dunkel; Text kippt bei i>=4 auf weiß.
+  var RAMP = ['#eef5fe', '#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#104281'];
+  function color(norm) {
+    var i = Math.max(0, Math.min(RAMP.length - 1, Math.round(norm * (RAMP.length - 1))));
+    return { bg: RAMP[i], fg: i >= 4 ? '#fff' : '#1a1a1a' };
+  }
+  function heatmap(title, grid, hlR, hlC, fmt, unit) {
+    var n = grid.length, max = 0, r, c, v;
+    for (r = 0; r < n; r++) for (c = 0; c < n; c++) if (grid[r][c] > max) max = grid[r][c];
+    var h = '<div class="heat"><h4>' + title + '</h4><table class="hm"><thead><tr>' +
+            '<th class="hm-corner">H\\A</th>';
+    for (c = 0; c < n; c++) h += '<th>' + c + '</th>';
+    h += '</tr></thead><tbody>';
+    for (r = 0; r < n; r++) {
+      h += '<tr><th>' + r + '</th>';
+      for (c = 0; c < n; c++) {
+        v = grid[r][c];
+        var col = color(max > 0 ? v / max : 0);
+        var hl = (r === hlR && c === hlC) ? ' hl' : '';
+        h += '<td><div class="hm-cell' + hl + '" style="background:' + col.bg +
+             ';color:' + col.fg + '" title="' + r + ':' + c + ' – ' + fmt(v) + unit +
+             '">' + fmt(v) + '</div></td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table><div class="m-axislabel">Zeile = Heim-Tore · Spalte = Auswärts-Tore</div></div>';
+    return h;
+  }
+  function tile(cls, lbl, val, best) {
+    return '<div class="tile ' + cls + (best ? ' is-best' : '') + '">' +
+           '<div class="lbl">' + lbl + '</div><div class="val">' + val + '</div></div>';
+  }
+  function render(d) {
+    document.getElementById('m-title').textContent = d.home + ' – ' + d.away;
+    document.getElementById('m-kick').textContent =
+      'Wahrscheinlichstes Ergebnis ' + d.mode[0] + ':' + d.mode[1] +
+      ' · Tipp ' + d.tip[0] + ':' + d.tip[1];
+    var w = d.wdl, e = d.tend_ev, bestE = Math.max(e[0], e[1], e[2]);
+    var chances = '<div class="tiles">' +
+      tile('win', 'Heimsieg', w[0] + '%') +
+      tile('draw', 'Unentschieden', w[1] + '%') +
+      tile('loss', 'Auswärtssieg', w[2] + '%') + '</div>';
+    var ertrag = '<div class="tiles">' +
+      tile('win', 'Sieg-Tipp', e[0].toFixed(2), e[0] === bestE) +
+      tile('draw', 'Remis-Tipp', e[1].toFixed(2), e[1] === bestE) +
+      tile('loss', 'Niederlage-Tipp', e[2].toFixed(2), e[2] === bestE) + '</div>';
+    var heats = '<div class="heatwrap">' +
+      heatmap('Ergebnis-Wahrscheinlichkeit (%)', d.probs, d.mode[0], d.mode[1],
+              function (v) { return v.toFixed(0); }, '%') +
+      heatmap('Erwartete Kicktipp-Punkte', d.ev, d.tip[0], d.tip[1],
+              function (v) { return v.toFixed(1); }, ' Pkt') + '</div>';
+    document.getElementById('m-body').innerHTML =
+      '<div class="m-section-title">Chancen (roh)</div>' + chances +
+      '<div class="m-section-title">Bester Ertrag je Tendenz — E[Pkt] (punkteoptimiert)</div>' + ertrag +
+      '<div class="m-section-title">Verteilung: roh vs. punkteoptimiert</div>' + heats +
+      '<div class="m-take">Das Remis kann bei den Chancen durchaus vorn liegen — als ' +
+      '<em>Tipp</em> gewinnt fast immer eine Sieg-Seite, weil ihr bester Punkte-Ertrag höher ist. ' +
+      'Der Tipp wird im 0–2-Raster gewählt.</div>';
+  }
+  var modal = document.getElementById('modal');
+  function open(i) { var d = DETAILS[i]; if (!d) return; render(d); modal.hidden = false; document.body.style.overflow = 'hidden'; }
+  function close() { modal.hidden = true; document.body.style.overflow = ''; }
+  var trs = document.querySelectorAll('tr.clickable'), k;
+  for (k = 0; k < trs.length; k++) {
+    (function (tr) {
+      var idx = parseInt(tr.dataset.idx, 10);
+      tr.addEventListener('click', function () { open(idx); });
+      tr.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(idx); }
+      });
+    })(trs[k]);
+  }
+  modal.querySelector('.modal-backdrop').addEventListener('click', close);
+  modal.querySelector('.modal-close').addEventListener('click', close);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
 </body>
 </html>
