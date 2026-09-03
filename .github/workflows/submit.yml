@@ -1,8 +1,8 @@
 name: Submit-Tips
 
-# Manuell auslösbar + täglicher Cron. Der geplante Lauf ist in der TESTPHASE ein
-# Dry-Run (gibt nichts ab, zeigt in den Logs nur, was abgegeben würde). Zum
-# Scharfschalten unten im Run-Step SUBMIT_ON_SCHEDULE=true setzen.
+# Manuell auslösbar + täglicher Cron. Der geplante Lauf ist SCHARF (gibt seit
+# 2026-09-03 wirklich ab). Zum Zurückschalten auf Dry-Run unten im Run-Step
+# SUBMIT_ON_SCHEDULE=false setzen.
 on:
   workflow_dispatch:
     inputs:
@@ -42,12 +42,12 @@ jobs:
           KICKTIPP_PASSWORD: ${{ secrets.KICKTIPP_PASSWORD }}
           KICKTIPP_COMMUNITY: ${{ secrets.KICKTIPP_COMMUNITY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        # SCHEDULE (Cron): TESTPHASE → Dry-Run mit --overwrite + --allow-no-games.
-        #   Zum Scharfschalten SUBMIT_ON_SCHEDULE=true setzen → Cron läuft dann mit
-        #   "--submit --overwrite --allow-no-games".
+        # SCHEDULE (Cron): SCHARF → "--submit --overwrite --allow-no-games".
+        #   Zum Zurückschalten auf Dry-Run SUBMIT_ON_SCHEDULE=false setzen (Cron
+        #   läuft dann mit "--overwrite --allow-no-games", gibt nichts ab).
         # DISPATCH (manuell): diagnose > submit-Input > Dry-Run (unverändert).
         run: |
-          SUBMIT_ON_SCHEDULE=false
+          SUBMIT_ON_SCHEDULE=true
           if [ "${{ github.event.inputs.diagnose }}" = "true" ]; then
             python submit_tips.py --diagnose
           elif [ "${{ github.event_name }}" = "schedule" ]; then
