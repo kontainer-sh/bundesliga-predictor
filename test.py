@@ -289,6 +289,10 @@ check("Fremdes Formular → keine Spiele", _g3 == [])
 # Formular ohne Spielzeilen (Post-Submit-Interstitial) → gefunden, aber leer
 _f4, _b4, _g4 = st.parse_form('<form action="/baeurer/tippabgabe"></form>', "baeurer")
 check("Leeres Tippformular → gefunden, keine Spiele", _f4 is True and _g4 == [])
+
+# NoOpenMatchday muss von SystemExit erben: ungefangen → Exit 1 (bisheriges
+# Verhalten), UND die Post-Submit-Verifikation (except SystemExit) fängt es weiter.
+check("NoOpenMatchday ist SystemExit-Subklasse", issubclass(st.NoOpenMatchday, SystemExit))
 print()
 
 # --- Ergebnis ---

@@ -1,7 +1,8 @@
 name: Submit-Tips
 
-# Manuell auslösbar. Der Schedule ist bewusst auskommentiert — erst aktivieren,
-# wenn die automatische Abgabe wirklich scharf geschaltet werden soll.
+# Manuell auslösbar + täglicher Cron. Der geplante Lauf ist in der TESTPHASE ein
+# Dry-Run (gibt nichts ab, zeigt in den Logs nur, was abgegeben würde). Zum
+# Scharfschalten unten im Run-Step SUBMIT_ON_SCHEDULE=true setzen.
 on:
   workflow_dispatch:
     inputs:
@@ -13,8 +14,11 @@ on:
         description: "Nur Formularstruktur ausgeben (sanitisiert, gibt nichts ab)"
         type: boolean
         default: false
-  # schedule:
-  #   - cron: "0 6 * * *"   # täglich 06:00 UTC; submit_tips.py gibt nur bei offenem Spieltag ab
+  schedule:
+    # Täglich 03:00 UTC (~05:00 MESZ). GitHub-Cron driftet teils um Stunden;
+    # daily + --overwrite fängt das ab (mehrere Versuche/Woche, letzter vor der
+    # Deadline zählt). --allow-no-games hält Tage ohne offenen Spieltag grün.
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
@@ -38,11 +42,20 @@ jobs:
           KICKTIPP_PASSWORD: ${{ secrets.KICKTIPP_PASSWORD }}
           KICKTIPP_COMMUNITY: ${{ secrets.KICKTIPP_COMMUNITY }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        # Bei geplantem Lauf (schedule) immer Dry-Run, bis --submit hart gesetzt wird.
-        # diagnose hat Vorrang und gibt nie ab.
+        # SCHEDULE (Cron): TESTPHASE → Dry-Run mit --overwrite + --allow-no-games.
+        #   Zum Scharfschalten SUBMIT_ON_SCHEDULE=true setzen → Cron läuft dann mit
+        #   "--submit --overwrite --allow-no-games".
+        # DISPATCH (manuell): diagnose > submit-Input > Dry-Run (unverändert).
         run: |
+          SUBMIT_ON_SCHEDULE=false
           if [ "${{ github.event.inputs.diagnose }}" = "true" ]; then
             python submit_tips.py --diagnose
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "$SUBMIT_ON_SCHEDULE" = "true" ]; then
+              python submit_tips.py --submit --overwrite --allow-no-games
+            else
+              python submit_tips.py --overwrite --allow-no-games
+            fi
           elif [ "${{ github.event.inputs.submit }}" = "true" ]; then
             python submit_tips.py --submit
           else
