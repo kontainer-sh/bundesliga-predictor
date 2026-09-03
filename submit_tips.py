@@ -31,6 +31,16 @@ from auto_predict import find_next_matchday
 
 BASE = "https://www.kicktipp.de"
 
+
+class NoOpenMatchday(SystemExit):
+    """Kein offener Spieltag zum Tippen (Deadline vorbei oder Saisonpause).
+
+    Erbt von SystemExit, damit ein ungefangenes Auftreten weiterhin mit Exit-Code
+    1 endet (bisheriges Verhalten). Bei einem täglichen Cron-Lauf ist das aber der
+    Normalfall (Tage ohne offenes Formular) — dann fängt main() es mit
+    --allow-no-games ab und beendet grün (Exit 0), statt false-red zu melden.
+    """
+
 # Kicktipp-Anzeigenamen → OpenLigaDB (nur Abweichungen; Rest via _normalize_team)
 KT_TO_OLDB = {
     "1899 Hoffenheim": "TSG Hoffenheim",
@@ -125,7 +135,7 @@ def fetch_form(session: requests.Session, community: str,
 
     if not form_found:
         raise SystemExit("Tippabgabe-Formular nicht gefunden (eingeloggt? Runde korrekt?).")
-    raise SystemExit("Keine offenen Spiele im Formular (Deadline vorbei?).")
+    raise NoOpenMatchday("Keine offenen Spiele im Formular (Deadline vorbei?).")
 
 
 def diagnose_form(session: requests.Session, community: str) -> None:
@@ -177,7 +187,7 @@ def compute_model_tips(games):
     """Berechnet Modell-Tipps (Modell + Live-Odds) für die Formular-Spiele."""
     info = find_next_matchday()
     if info is None:
-        raise SystemExit("Kein kommender Spieltag (Saisonpause?).")
+        raise NoOpenMatchday("Kein kommender Spieltag (Saisonpause?).")
     season, md = info["season"], info["matchday"]
     all_matches = kt.load_all_matches(season)
     ref_date = datetime.now(tz=timezone.utc)
@@ -204,6 +214,9 @@ def main():
                     help="auch bereits getippte Spiele überschreiben")
     ap.add_argument("--diagnose", action="store_true",
                     help="nur die (sanitisierte) Formularstruktur ausgeben, nichts abgeben")
+    ap.add_argument("--allow-no-games", action="store_true",
+                    help="bei keinem offenen Spieltag (Deadline vorbei/Saisonpause) grün "
+                         "beenden (Exit 0) statt Fehler — für tägliche Cron-Läufe")
     ap.add_argument("--community", default=os.environ.get("KICKTIPP_COMMUNITY"),
                     help="Kicktipp-Runde (Slug); Default aus KICKTIPP_COMMUNITY")
     args = ap.parse_args()
@@ -223,8 +236,14 @@ def main():
         diagnose_form(session, args.community)
         return
 
-    base_fields, games = fetch_form(session, args.community)
-    tips, missing, label = compute_model_tips(games)
+    try:
+        base_fields, games = fetch_form(session, args.community)
+        tips, missing, label = compute_model_tips(games)
+    except NoOpenMatchday as e:
+        if args.allow_no_games:
+            print(f"Kein offener Spieltag: {e} — nichts zu tun (Exit 0).")
+            return
+        raise
 
     if missing:
         print("FEHLER — Spiele ohne Modell-Zuordnung (KT_TO_OLDB prüfen):")
