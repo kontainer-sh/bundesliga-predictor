@@ -24,6 +24,9 @@
   .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
            padding: 20px; margin: 24px 0; }
   table { width: 100%; border-collapse: collapse; }
+  /* Sicherheitsnetz: falls die Tabelle je breiter als der Viewport wird,
+     scrollt sie in ihrer Karte statt die ganze Seite horizontal zu schieben. */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th { text-align: left; padding: 10px 12px; color: #666; font-weight: 600;
        font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.03em;
        border-bottom: 2px solid #e5e5e5; }
@@ -54,6 +57,11 @@
   @media (max-width: 500px) {
     .match { font-size: 0.9em; }
     th, td { padding: 8px 6px; }
+    /* Anpfiff darf umbrechen (Datum/Zeit zweizeilig) — spart Breite. */
+    .kickoff { white-space: normal; }
+    /* Tendenz-Spalte (5.) ausblenden: redundant zum Tipp, macht die Tabelle
+       schmal genug, dass sie ohne horizontales Scrollen in den Viewport passt. */
+    .results th:nth-child(5), .results td:nth-child(5) { display: none; }
   }
 
   /* --- Detail-Popup --- */
@@ -112,7 +120,8 @@
 </header>
 
 <div class="card">
-<table>
+<div class="table-wrap">
+<table class="results">
 <thead>
 <tr><th>Anpfiff</th><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
 </thead>
@@ -139,6 +148,7 @@
 </tr>
 </tbody>
 </table>
+</div>
 <p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)<br>&rsaquo; Zeile anklicken f&uuml;r Details: Ergebnis-Matrix, Chancen &amp; Punkte-Optimierung</p>
 </div>
 
