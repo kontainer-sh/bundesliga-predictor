@@ -24,6 +24,9 @@
   .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
            padding: 20px; margin: 24px 0; }
   table { width: 100%; border-collapse: collapse; }
+  /* Sicherheitsnetz: falls die Tabelle je breiter als der Viewport wird,
+     scrollt sie in ihrer Karte statt die ganze Seite horizontal zu schieben. */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th { text-align: left; padding: 10px 12px; color: #666; font-weight: 600;
        font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.03em;
        border-bottom: 2px solid #e5e5e5; }
@@ -54,6 +57,11 @@
   @media (max-width: 500px) {
     .match { font-size: 0.9em; }
     th, td { padding: 8px 6px; }
+    /* Anpfiff darf umbrechen (Datum/Zeit zweizeilig) — spart Breite. */
+    .kickoff { white-space: normal; }
+    /* Tendenz-Spalte (5.) ausblenden: redundant zum Tipp, macht die Tabelle
+       schmal genug, dass sie ohne horizontales Scrollen in den Viewport passt. */
+    .results th:nth-child(5), .results td:nth-child(5) { display: none; }
   }
 
   /* --- Detail-Popup --- */
@@ -107,12 +115,13 @@
   <p class="subtitle">Saison 2026/2027</p>
   <p class="meta">
     Anpfiff: 04.09.2026 18:30 UTC &middot;
-    Aktualisiert: 03.09.2026 12:36 UTC
+    Aktualisiert: 04.09.2026 11:32 UTC
   </p>
 </header>
 
 <div class="card">
-<table>
+<div class="table-wrap">
+<table class="results">
 <thead>
 <tr><th>Anpfiff</th><th>Begegnung</th><th style="text-align:center">Tipp</th><th style="text-align:center">E[Pkt]</th><th>Tendenz</th></tr>
 </thead>
@@ -121,50 +130,50 @@
   <td class="kickoff">Fr 04.09. 20:30</td>
   <td class="match">VfB Stuttgart – 1. FC Köln<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">2:1</td>
-  <td class="ev">0.964</td>
+  <td class="ev">0.988</td>
   <td class="tend tend-home">Heimsieg</td>
 </tr>
 <tr class="day-sep"><td colspan="5"></td></tr>
-<tr class="clickable" data-idx="1" tabindex="0" role="button" aria-label="Details zu TSG Hoffenheim gegen Borussia Dortmund">
-  <td class="kickoff">Sa 05.09. 15:30</td>
-  <td class="match">TSG Hoffenheim – Borussia Dortmund<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
-  <td class="tip">1:2</td>
-  <td class="ev">0.765</td>
-  <td class="tend tend-away">Auswärtssieg</td>
-</tr>
-<tr class="clickable" data-idx="2" tabindex="0" role="button" aria-label="Details zu Bayer 04 Leverkusen gegen 1. FC Union Berlin">
+<tr class="clickable" data-idx="1" tabindex="0" role="button" aria-label="Details zu Bayer 04 Leverkusen gegen 1. FC Union Berlin">
   <td class="kickoff">Sa 05.09. 15:30</td>
   <td class="match">Bayer 04 Leverkusen – 1. FC Union Berlin<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">2:1</td>
-  <td class="ev">0.993</td>
+  <td class="ev">0.984</td>
   <td class="tend tend-home">Heimsieg</td>
+</tr>
+<tr class="clickable" data-idx="2" tabindex="0" role="button" aria-label="Details zu TSG Hoffenheim gegen Borussia Dortmund">
+  <td class="kickoff">Sa 05.09. 15:30</td>
+  <td class="match">TSG Hoffenheim – Borussia Dortmund<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
+  <td class="tip">1:2</td>
+  <td class="ev">0.762</td>
+  <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="clickable" data-idx="3" tabindex="0" role="button" aria-label="Details zu Borussia Mönchengladbach gegen SV 07 Elversberg">
   <td class="kickoff">Sa 05.09. 15:30</td>
   <td class="match">Borussia Mönchengladbach – SV 07 Elversberg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">1:0</td>
-  <td class="ev">0.824</td>
+  <td class="ev">0.841</td>
   <td class="tend tend-home">Heimsieg</td>
 </tr>
 <tr class="clickable" data-idx="4" tabindex="0" role="button" aria-label="Details zu SV Werder Bremen gegen RB Leipzig">
   <td class="kickoff">Sa 05.09. 15:30</td>
   <td class="match">SV Werder Bremen – RB Leipzig<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">1:2</td>
-  <td class="ev">0.863</td>
+  <td class="ev">0.868</td>
   <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="clickable" data-idx="5" tabindex="0" role="button" aria-label="Details zu SC Paderborn 07 gegen SC Freiburg">
   <td class="kickoff">Sa 05.09. 15:30</td>
   <td class="match">SC Paderborn 07 – SC Freiburg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">0:1</td>
-  <td class="ev">0.787</td>
+  <td class="ev">0.795</td>
   <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="clickable" data-idx="6" tabindex="0" role="button" aria-label="Details zu FC Schalke 04 gegen FC Bayern München">
   <td class="kickoff">Sa 05.09. 18:30</td>
   <td class="match">FC Schalke 04 – FC Bayern München<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">0:2</td>
-  <td class="ev">1.175</td>
+  <td class="ev">1.169</td>
   <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="day-sep"><td colspan="5"></td></tr>
@@ -172,23 +181,24 @@
   <td class="kickoff">So 06.09. 15:30</td>
   <td class="match">Hamburger SV – 1. FSV Mainz 05<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">0:1</td>
-  <td class="ev">0.686</td>
+  <td class="ev">0.684</td>
   <td class="tend tend-away">Auswärtssieg</td>
 </tr>
 <tr class="clickable" data-idx="8" tabindex="0" role="button" aria-label="Details zu Eintracht Frankfurt gegen FC Augsburg">
   <td class="kickoff">So 06.09. 17:30</td>
   <td class="match">Eintracht Frankfurt – FC Augsburg<span class="odds-badge">&#9889; Odds</span><span class="detail-cue" aria-hidden="true">&rsaquo;</span></td>
   <td class="tip">2:1</td>
-  <td class="ev">0.822</td>
+  <td class="ev">0.828</td>
   <td class="tend tend-home">Heimsieg</td>
 </tr>
 <tr style="border-top:2px solid #e5e5e5">
   <td></td><td class="match"><strong>Summe</strong></td>
-  <td></td><td class="ev"><strong>7.88</strong></td>
+  <td></td><td class="ev"><strong>7.92</strong></td>
   <td></td>
 </tr>
 </tbody>
 </table>
+</div>
 <p class="legend">&#9889; mit Pinnacle-Quoten &middot; ohne Badge = nur Modell &middot; Anpfiff in Ortszeit (MEZ/MESZ)<br>&rsaquo; Zeile anklicken f&uuml;r Details: Ergebnis-Matrix, Chancen &amp; Punkte-Optimierung</p>
 </div>
 
@@ -241,7 +251,7 @@ wird gewählt — analytisch exakt berechnet.</p>
   </div>
 </div>
 
-<script type="application/json" id="game-details">[{"away": "1. FC K\u00f6ln", "ev": [[0.42, 0.31, 0.23, 0.19, 0.17, 0.17], [0.95, 0.47, 0.32, 0.22, 0.18, 0.17], [0.92, 0.96, 0.44, 0.29, 0.21, 0.18], [0.83, 0.91, 0.91, 0.4, 0.28, 0.21], [0.74, 0.8, 0.85, 0.87, 0.39, 0.27], [0.69, 0.72, 0.77, 0.84, 0.87, 0.39]], "home": "VfB Stuttgart", "mode": [2, 1], "n": 6, "probs": [[3.8, 3.8, 2.1, 0.7, 0.2, 0.0], [8.0, 8.8, 4.6, 1.6, 0.4, 0.1], [9.1, 9.7, 5.2, 1.8, 0.5, 0.1], [6.9, 7.3, 3.9, 1.4, 0.4, 0.1], [3.9, 4.2, 2.2, 0.8, 0.2, 0.0], [1.8, 1.9, 1.0, 0.4, 0.1, 0.0]], "tend_ev": [0.96, 0.47, 0.32], "tip": [2, 1], "wdl": [64.1, 19.3, 16.6]}, {"away": "Borussia Dortmund", "ev": [[0.54, 0.76, 0.67, 0.56, 0.5, 0.47], [0.54, 0.6, 0.76, 0.65, 0.55, 0.49], [0.43, 0.54, 0.55, 0.71, 0.61, 0.53], [0.35, 0.42, 0.5, 0.5, 0.68, 0.6], [0.32, 0.34, 0.39, 0.47, 0.49, 0.67], [0.3, 0.31, 0.33, 0.39, 0.47, 0.49]], "home": "TSG Hoffenheim", "mode": [1, 1], "n": 6, "probs": [[5.4, 8.4, 7.0, 3.9, 1.7, 0.6], [6.7, 11.2, 9.1, 5.1, 2.2, 0.8], [4.4, 7.2, 6.0, 3.4, 1.4, 0.5], [1.9, 3.1, 2.6, 1.5, 0.6, 0.2], [0.6, 1.0, 0.9, 0.5, 0.2, 0.1], [0.2, 0.3, 0.2, 0.1, 0.1, 0.0]], "tend_ev": [0.54, 0.6, 0.76], "tip": [1, 2], "wdl": [29.9, 24.3, 45.8]}, {"away": "1. FC Union Berlin", "ev": [[0.42, 0.28, 0.2, 0.16, 0.15, 0.15], [0.98, 0.46, 0.28, 0.19, 0.16, 0.15], [0.97, 0.99, 0.42, 0.26, 0.18, 0.16], [0.87, 0.94, 0.93, 0.39, 0.24, 0.18], [0.78, 0.84, 0.89, 0.9, 0.38, 0.24], [0.71, 0.75, 0.8, 0.87, 0.9, 0.38]], "home": "Bayer 04 Leverkusen", "mode": [2, 0], "n": 6, "probs": [[4.1, 3.7, 1.8, 0.6, 0.1, 0.0], [8.8, 8.8, 4.2, 1.3, 0.3, 0.1], [10.2, 9.8, 4.7, 1.5, 0.4, 0.1], [7.7, 7.4, 3.6, 1.1, 0.3, 0.1], [4.4, 4.2, 2.0, 0.6, 0.2, 0.0], [2.0, 1.9, 0.9, 0.3, 0.1, 0.0]], "tend_ev": [0.99, 0.46, 0.28], "tip": [2, 1], "wdl": [66.6, 18.9, 14.5]}, {"away": "SV 07 Elversberg", "ev": [[0.55, 0.48, 0.37, 0.3, 0.27, 0.26], [0.82, 0.6, 0.48, 0.35, 0.29, 0.27], [0.73, 0.82, 0.54, 0.44, 0.34, 0.28], [0.62, 0.71, 0.76, 0.5, 0.42, 0.33], [0.55, 0.6, 0.66, 0.73, 0.49, 0.41], [0.51, 0.54, 0.58, 0.65, 0.73, 0.49]], "home": "Borussia M\u00f6nchengladbach", "mode": [1, 1], "n": 6, "probs": [[6.0, 6.5, 3.8, 1.5, 0.4, 0.1], [9.6, 11.5, 6.5, 2.5, 0.7, 0.2], [8.3, 9.6, 5.5, 2.1, 0.6, 0.1], [4.7, 5.4, 3.1, 1.2, 0.4, 0.1], [2.0, 2.3, 1.3, 0.5, 0.2, 0.0], [0.7, 0.8, 0.5, 0.2, 0.1, 0.0]], "tend_ev": [0.82, 0.6, 0.48], "tip": [1, 0], "wdl": [49.8, 24.3, 25.8]}, {"away": "RB Leipzig", "ev": [[0.51, 0.86, 0.78, 0.67, 0.6, 0.56], [0.43, 0.57, 0.86, 0.76, 0.65, 0.58], [0.33, 0.44, 0.52, 0.8, 0.71, 0.63], [0.27, 0.32, 0.4, 0.48, 0.77, 0.7], [0.24, 0.26, 0.3, 0.38, 0.46, 0.77], [0.24, 0.24, 0.26, 0.3, 0.38, 0.46]], "home": "SV Werder Bremen", "mode": [1, 1], "n": 6, "probs": [[5.2, 9.1, 8.5, 5.2, 2.4, 0.9], [5.6, 10.8, 9.8, 6.0, 2.8, 1.0], [3.3, 6.1, 5.6, 3.5, 1.6, 0.6], [1.3, 2.3, 2.2, 1.3, 0.6, 0.2], [0.4, 0.7, 0.6, 0.4, 0.2, 0.1], [0.1, 0.2, 0.1, 0.1, 0.0, 0.0]], "tend_ev": [0.44, 0.57, 0.86], "tip": [1, 2], "wdl": [23.4, 23.1, 53.5]}, {"away": "SC Freiburg", "ev": [[0.58, 0.79, 0.68, 0.57, 0.5, 0.47], [0.53, 0.63, 0.78, 0.65, 0.54, 0.49], [0.41, 0.52, 0.56, 0.72, 0.61, 0.53], [0.33, 0.39, 0.47, 0.52, 0.69, 0.6], [0.3, 0.32, 0.37, 0.46, 0.51, 0.69], [0.29, 0.29, 0.31, 0.36, 0.45, 0.51]], "home": "SC Paderborn 07", "mode": [1, 1], "n": 6, "probs": [[6.7, 10.0, 7.9, 4.1, 1.6, 0.5], [7.4, 12.0, 9.2, 4.8, 1.9, 0.6], [4.4, 6.9, 5.4, 2.9, 1.1, 0.4], [1.7, 2.7, 2.2, 1.1, 0.5, 0.1], [0.5, 0.8, 0.7, 0.3, 0.1, 0.0], [0.1, 0.2, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.53, 0.63, 0.79], "tip": [0, 1], "wdl": [28.4, 25.4, 46.2]}, {"away": "FC Bayern M\u00fcnchen", "ev": [[0.26, 1.11, 1.18, 1.13, 1.04, 0.95], [0.11, 0.28, 1.1, 1.12, 1.07, 0.99], [0.07, 0.11, 0.25, 1.05, 1.07, 1.03], [0.06, 0.07, 0.1, 0.24, 1.03, 1.05], [0.05, 0.05, 0.06, 0.09, 0.23, 1.02], [0.05, 0.05, 0.05, 0.06, 0.09, 0.23]], "home": "FC Schalke 04", "mode": [0, 2], "n": 6, "probs": [[3.3, 8.9, 12.5, 11.8, 8.4, 4.9], [1.8, 5.3, 7.5, 7.2, 5.3, 3.2], [0.6, 1.6, 2.3, 2.3, 1.7, 1.1], [0.1, 0.3, 0.5, 0.5, 0.4, 0.3], [0.0, 0.1, 0.1, 0.1, 0.1, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tend_ev": [0.11, 0.28, 1.18], "tip": [0, 2], "wdl": [5.2, 11.6, 83.2]}, {"away": "1. FSV Mainz 05", "ev": [[0.61, 0.69, 0.56, 0.45, 0.4, 0.39], [0.64, 0.66, 0.67, 0.53, 0.44, 0.4], [0.51, 0.63, 0.59, 0.61, 0.5, 0.43], [0.41, 0.49, 0.57, 0.55, 0.59, 0.49], [0.37, 0.4, 0.46, 0.55, 0.54, 0.59], [0.36, 0.37, 0.39, 0.45, 0.55, 0.54]], "home": "Hamburger SV", "mode": [1, 1], "n": 6, "probs": [[7.7, 9.8, 6.6, 2.9, 1.0, 0.3], [9.3, 12.8, 8.3, 3.7, 1.2, 0.3], [6.0, 7.9, 5.2, 2.3, 0.8, 0.2], [2.5, 3.3, 2.2, 1.0, 0.3, 0.1], [0.8, 1.1, 0.7, 0.3, 0.1, 0.0], [0.2, 0.3, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.64, 0.66, 0.69], "tip": [0, 1], "wdl": [35.1, 26.8, 38.0]}, {"away": "FC Augsburg", "ev": [[0.51, 0.47, 0.37, 0.31, 0.28, 0.27], [0.81, 0.57, 0.48, 0.36, 0.3, 0.27], [0.73, 0.82, 0.52, 0.44, 0.34, 0.29], [0.63, 0.72, 0.76, 0.48, 0.42, 0.34], [0.56, 0.61, 0.68, 0.73, 0.47, 0.42], [0.52, 0.55, 0.59, 0.66, 0.73, 0.46]], "home": "Eintracht Frankfurt", "mode": [1, 1], "n": 6, "probs": [[4.8, 5.6, 3.7, 1.5, 0.5, 0.1], [8.2, 10.7, 6.6, 2.8, 0.9, 0.2], [7.6, 9.6, 6.0, 2.5, 0.8, 0.2], [4.6, 5.8, 3.7, 1.5, 0.5, 0.1], [2.1, 2.7, 1.7, 0.7, 0.2, 0.1], [0.8, 1.0, 0.6, 0.3, 0.1, 0.0]], "tend_ev": [0.82, 0.57, 0.48], "tip": [2, 1], "wdl": [50.5, 23.2, 26.3]}]</script>
+<script type="application/json" id="game-details">[{"away": "1. FC K\u00f6ln", "ev": [[0.41, 0.28, 0.2, 0.17, 0.15, 0.15], [0.97, 0.46, 0.29, 0.2, 0.16, 0.15], [0.96, 0.99, 0.42, 0.26, 0.19, 0.16], [0.87, 0.94, 0.93, 0.39, 0.25, 0.19], [0.78, 0.84, 0.88, 0.9, 0.37, 0.25], [0.71, 0.75, 0.8, 0.87, 0.89, 0.37]], "home": "VfB Stuttgart", "mode": [2, 1], "n": 6, "probs": [[3.8, 3.5, 1.8, 0.6, 0.2, 0.0], [8.3, 8.5, 4.2, 1.4, 0.4, 0.1], [9.6, 9.7, 4.9, 1.6, 0.4, 0.1], [7.4, 7.5, 3.8, 1.3, 0.3, 0.1], [4.3, 4.4, 2.2, 0.7, 0.2, 0.0], [2.0, 2.0, 1.0, 0.4, 0.1, 0.0]], "tend_ev": [0.99, 0.46, 0.29], "tip": [2, 1], "wdl": [66.5, 18.6, 14.9]}, {"away": "1. FC Union Berlin", "ev": [[0.42, 0.29, 0.21, 0.17, 0.16, 0.15], [0.97, 0.47, 0.29, 0.2, 0.17, 0.15], [0.95, 0.98, 0.43, 0.27, 0.19, 0.16], [0.86, 0.93, 0.92, 0.39, 0.25, 0.19], [0.76, 0.82, 0.87, 0.89, 0.38, 0.25], [0.7, 0.74, 0.79, 0.86, 0.89, 0.38]], "home": "Bayer 04 Leverkusen", "mode": [2, 0], "n": 6, "probs": [[4.1, 3.8, 1.9, 0.6, 0.2, 0.0], [8.7, 8.9, 4.3, 1.4, 0.3, 0.1], [10.0, 9.8, 4.8, 1.6, 0.4, 0.1], [7.5, 7.3, 3.6, 1.2, 0.3, 0.1], [4.2, 4.1, 2.0, 0.7, 0.2, 0.0], [1.9, 1.9, 0.9, 0.3, 0.1, 0.0]], "tend_ev": [0.98, 0.47, 0.29], "tip": [2, 1], "wdl": [65.7, 19.1, 15.2]}, {"away": "Borussia Dortmund", "ev": [[0.54, 0.75, 0.66, 0.56, 0.5, 0.47], [0.54, 0.6, 0.76, 0.64, 0.54, 0.49], [0.43, 0.54, 0.55, 0.7, 0.61, 0.53], [0.35, 0.42, 0.5, 0.5, 0.68, 0.6], [0.32, 0.34, 0.4, 0.48, 0.49, 0.67], [0.31, 0.31, 0.34, 0.39, 0.47, 0.49]], "home": "TSG Hoffenheim", "mode": [1, 1], "n": 6, "probs": [[5.4, 8.3, 6.9, 3.9, 1.6, 0.6], [6.7, 11.2, 9.1, 5.1, 2.2, 0.8], [4.4, 7.2, 6.0, 3.4, 1.4, 0.5], [1.9, 3.2, 2.6, 1.5, 0.6, 0.2], [0.6, 1.0, 0.9, 0.5, 0.2, 0.1], [0.2, 0.3, 0.2, 0.1, 0.1, 0.0]], "tend_ev": [0.54, 0.6, 0.76], "tip": [1, 2], "wdl": [30.1, 24.3, 45.6]}, {"away": "SV 07 Elversberg", "ev": [[0.57, 0.48, 0.36, 0.29, 0.26, 0.25], [0.84, 0.62, 0.47, 0.34, 0.28, 0.26], [0.74, 0.83, 0.55, 0.42, 0.32, 0.27], [0.62, 0.7, 0.76, 0.51, 0.41, 0.32], [0.55, 0.59, 0.66, 0.74, 0.5, 0.41], [0.51, 0.53, 0.58, 0.65, 0.73, 0.5]], "home": "Borussia M\u00f6nchengladbach", "mode": [1, 1], "n": 6, "probs": [[6.9, 7.0, 3.9, 1.4, 0.4, 0.1], [10.7, 11.8, 6.3, 2.3, 0.6, 0.1], [8.8, 9.5, 5.1, 1.9, 0.5, 0.1], [4.8, 5.1, 2.8, 1.0, 0.3, 0.1], [1.9, 2.1, 1.1, 0.4, 0.1, 0.0], [0.6, 0.7, 0.4, 0.1, 0.0, 0.0]], "tend_ev": [0.84, 0.62, 0.48], "tip": [1, 0], "wdl": [49.9, 25.0, 25.1]}, {"away": "RB Leipzig", "ev": [[0.51, 0.86, 0.79, 0.68, 0.6, 0.56], [0.43, 0.57, 0.87, 0.77, 0.66, 0.59], [0.33, 0.43, 0.52, 0.8, 0.72, 0.63], [0.26, 0.32, 0.39, 0.47, 0.78, 0.71], [0.24, 0.26, 0.3, 0.38, 0.46, 0.77], [0.23, 0.24, 0.25, 0.29, 0.37, 0.46]], "home": "SV Werder Bremen", "mode": [1, 1], "n": 6, "probs": [[5.2, 9.1, 8.6, 5.3, 2.5, 0.9], [5.5, 10.7, 9.8, 6.1, 2.8, 1.0], [3.2, 6.0, 5.6, 3.5, 1.6, 0.6], [1.2, 2.3, 2.1, 1.3, 0.6, 0.2], [0.4, 0.7, 0.6, 0.4, 0.2, 0.1], [0.1, 0.1, 0.1, 0.1, 0.0, 0.0]], "tend_ev": [0.43, 0.57, 0.87], "tip": [1, 2], "wdl": [23.0, 23.0, 53.9]}, {"away": "SC Freiburg", "ev": [[0.57, 0.79, 0.69, 0.57, 0.51, 0.48], [0.52, 0.63, 0.79, 0.66, 0.55, 0.5], [0.4, 0.51, 0.56, 0.72, 0.62, 0.54], [0.32, 0.38, 0.47, 0.52, 0.7, 0.61], [0.29, 0.31, 0.36, 0.45, 0.51, 0.69], [0.28, 0.29, 0.31, 0.36, 0.45, 0.51]], "home": "SC Paderborn 07", "mode": [1, 1], "n": 6, "probs": [[6.7, 10.1, 8.0, 4.2, 1.6, 0.5], [7.3, 11.9, 9.2, 4.9, 1.9, 0.6], [4.3, 6.8, 5.4, 2.9, 1.1, 0.4], [1.7, 2.7, 2.1, 1.1, 0.5, 0.1], [0.5, 0.8, 0.6, 0.3, 0.1, 0.0], [0.1, 0.2, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.52, 0.63, 0.79], "tip": [0, 1], "wdl": [28.0, 25.3, 46.7]}, {"away": "FC Bayern M\u00fcnchen", "ev": [[0.27, 1.11, 1.17, 1.13, 1.03, 0.94], [0.11, 0.29, 1.1, 1.12, 1.06, 0.98], [0.07, 0.11, 0.26, 1.04, 1.06, 1.02], [0.06, 0.07, 0.1, 0.24, 1.03, 1.05], [0.05, 0.06, 0.07, 0.1, 0.24, 1.02], [0.05, 0.05, 0.06, 0.06, 0.1, 0.24]], "home": "FC Schalke 04", "mode": [0, 2], "n": 6, "probs": [[3.3, 8.9, 12.4, 11.6, 8.3, 4.8], [1.9, 5.4, 7.6, 7.3, 5.3, 3.2], [0.6, 1.7, 2.4, 2.4, 1.8, 1.1], [0.1, 0.4, 0.5, 0.5, 0.4, 0.3], [0.0, 0.1, 0.1, 0.1, 0.1, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], "tend_ev": [0.11, 0.29, 1.17], "tip": [0, 2], "wdl": [5.4, 11.8, 82.8]}, {"away": "1. FSV Mainz 05", "ev": [[0.61, 0.68, 0.56, 0.45, 0.4, 0.39], [0.64, 0.66, 0.67, 0.53, 0.43, 0.4], [0.51, 0.63, 0.59, 0.61, 0.5, 0.42], [0.42, 0.49, 0.57, 0.55, 0.59, 0.49], [0.37, 0.4, 0.46, 0.55, 0.54, 0.59], [0.36, 0.37, 0.39, 0.45, 0.55, 0.54]], "home": "Hamburger SV", "mode": [1, 1], "n": 6, "probs": [[7.7, 9.8, 6.6, 2.9, 1.0, 0.3], [9.3, 12.8, 8.3, 3.7, 1.2, 0.3], [6.0, 7.9, 5.2, 2.3, 0.8, 0.2], [2.5, 3.4, 2.2, 1.0, 0.3, 0.1], [0.8, 1.1, 0.7, 0.3, 0.1, 0.0], [0.2, 0.3, 0.2, 0.1, 0.0, 0.0]], "tend_ev": [0.64, 0.66, 0.68], "tip": [0, 1], "wdl": [35.2, 26.8, 37.9]}, {"away": "FC Augsburg", "ev": [[0.51, 0.47, 0.37, 0.3, 0.27, 0.26], [0.81, 0.57, 0.48, 0.36, 0.29, 0.27], [0.74, 0.83, 0.52, 0.44, 0.34, 0.29], [0.64, 0.72, 0.77, 0.48, 0.42, 0.33], [0.56, 0.62, 0.68, 0.74, 0.47, 0.41], [0.53, 0.55, 0.6, 0.67, 0.73, 0.46]], "home": "Eintracht Frankfurt", "mode": [1, 1], "n": 6, "probs": [[4.8, 5.6, 3.6, 1.5, 0.5, 0.1], [8.2, 10.6, 6.6, 2.7, 0.9, 0.2], [7.7, 9.6, 6.0, 2.5, 0.8, 0.2], [4.7, 5.9, 3.7, 1.5, 0.5, 0.1], [2.2, 2.7, 1.7, 0.7, 0.2, 0.1], [0.8, 1.0, 0.6, 0.3, 0.1, 0.0]], "tend_ev": [0.83, 0.57, 0.48], "tip": [2, 1], "wdl": [50.9, 23.1, 25.9]}]</script>
 <script>
 (function () {
   var DETAILS = JSON.parse(document.getElementById('game-details').textContent);
